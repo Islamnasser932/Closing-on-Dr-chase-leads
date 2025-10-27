@@ -4,7 +4,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from streamlit_extras.metric_cards import style_metric_cards
-import numpy as np
+import numpy as np # <--- هذا هو السطر الذي يضمن تعريف 'np'
 
 # ================== 0️⃣ CONFIGURATION ==================
 st.set_page_config(
@@ -44,6 +44,7 @@ def load_and_merge_data():
         # --- MCN Standardization and Handling Duplicates (THE FIX) ---
         for df in [dr, oplan]:
             if 'MCN' in df.columns:
+                # np.nan requires numpy to be imported.
                 df['MCN'] = df['MCN'].astype(str).str.strip().replace({'nan': np.nan, '': np.nan})
                 # Drop all records where MCN is still missing
                 df.dropna(subset=['MCN'], inplace=True) 
@@ -67,9 +68,13 @@ def load_and_merge_data():
         if 'Opener Status' in oplan.columns:
             oplan['Opener Status'] = oplan['Opener Status'].fillna('N/A - Status Missing')
         
-        # 🔴 Standardize 'Assigned To' column (from Oplan)
+        # 🔴 NEW FIX: Clean 'Assigned To' (Opener Name)
         if 'Assigned To' in oplan.columns:
+            # First handle missing values
             oplan['Assigned To'] = oplan['Assigned To'].fillna('N/A - Assigned Missing')
+            # Second, replace dots with spaces and capitalize words for readability
+            oplan['Assigned To'] = oplan['Assigned To'].str.replace('.', ' ', regex=False).str.title()
+
 
         # 🔴 CRITICAL FIX: Standardize Client column using Dr Chase version
         if 'Client' in dr.columns:
@@ -111,7 +116,11 @@ def load_and_merge_data():
         return merged_df, dr, oplan
         
     except Exception as e:
-        st.error(f"Failed to load data files or process: {e}")
+        # Check if the error is related to NumPy being undefined (though imported)
+        if "name 'np' is not defined" in str(e):
+             st.error(f"Failed to load data files or process: Critical dependency 'numpy' is missing or not defined in context.")
+        else:
+             st.error(f"Failed to load data files or process: {e}")
         # Return empty DataFrames on failure
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame() 
 
@@ -126,11 +135,42 @@ if merged_df.empty:
     st.warning("Failed to load or merge data. Please check file names and paths.")
     st.stop()
 
+# 🔴 NEW: Add custom CSS for general font improvements (larger base font, better legibility)
+st.markdown(
+    """
+    <style>
+    /* Global font size increase for better visibility */
+    html, body {
+        font-size: 16px; 
+    }
+    /* Improve main headers (st.title) */
+    .stApp header {
+        font-size: 2.5rem;
+    }
+    /* Custom style for subheaders (st.subheader) - making them bolder/larger */
+    h2 {
+        font-size: 1.8rem;
+        font-weight: 600;
+    }
+    /* Ensure KPI labels (small text) are legible */
+    div[data-testid="stMetricLabel"] > div {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+    /* Ensure KPI values (big numbers) are prominent */
+    div[data-testid="stMetricValue"] {
+        font-size: 2.5rem; /* Large KPI value size */
+        font-weight: bold;
+    }
+    /* Chart title improvement (Plotly) - handled in Plotly layout below */
+
+    </style>
+    """, unsafe_allow_html=True
+)
+
 # ================== 5️⃣ SIDEBAR FILTERS (IMPROVED COMPACTNESS) ==================
 with st.sidebar:
     st.header("⚙️ Data Filters")
-    
-    # 🔴 DELETED: MCN Search Text Input removed
     
     # 1. Closer Name Filter (Kept outside expander, FIXED CLOSERS)
     closer_options = sorted(merged_df['Closer Name'].unique())
@@ -144,13 +184,44 @@ with st.sidebar:
         # Fallback to the top 5 if the specified ones aren't found
         default_closers = closer_options[:5] 
         
+    
+    # --- Filter Action Buttons (Closer) ---
+    col_closer_btn1, col_closer_btn2 = st.columns(2) # 🔴 FIX: Reduced columns back to 2
+    
+    # Function to select the default closers
+    def select_default_closers():
+        st.session_state['selected_closers_state'] = default_closers
+        
+    # Function to clear all closers
+    def clear_all_closers():
+        st.session_state['selected_closers_state'] = []
+
+    # 🔴 FIX: Initialize session state with the defined default list
+    if 'selected_closers_state' not in st.session_state:
+        st.session_state['selected_closers_state'] = default_closers
+        
+    # 🔴 TWEAK for Dynamic Default: Update the session state only if the user modifies the multiselect
+    def update_closer_selection():
+        # This function runs after the multiselect widget has executed
+        pass
+
+    
+    # Buttons for fast action
+    with col_closer_btn1:
+        st.button("Select Default", on_click=select_default_closers, use_container_width=True)
+    with col_closer_btn2:
+        st.button("Clear All", on_click=clear_all_closers, use_container_width=True)
+    
     # --- Filter for Sidebar ---
+    # The multiselect reads/writes to st.session_state, allowing button clicks to modify its default state
     selected_closers_sidebar = st.multiselect(
         "🧑‍💼 Closer Name",
         options=closer_options,
-        default=default_closers
+        default=st.session_state['selected_closers_state'],
+        key='selected_closers_state',
+        on_change=update_closer_selection # Placeholder/Hook for potential future updates
     )
-
+    
     # Use expander for primary secondary filters
     with st.expander("⬇️ Advanced Filters: Disposition & Opener", expanded=False): # Set to False to keep it closed by default
         
@@ -184,12 +255,32 @@ with st.sidebar:
         )
         
     # 🔴 NEW IMPLEMENTATION: Assigned To filter is now in its own separate expander
+    # The options list is now automatically clean due to the fix in load_and_merge_data()
     assigned_to_options = sorted(merged_df['Assigned To'].unique())
+
+    # --- Assigned To Action Buttons ---
+    # Initialize state for Assigned To filter
+    if 'selected_assigned_to_state' not in st.session_state:
+        st.session_state['selected_assigned_to_state'] = assigned_to_options
+
+    def select_all_assigned_to():
+        st.session_state['selected_assigned_to_state'] = assigned_to_options
+    
+    def clear_all_assigned_to():
+        st.session_state['selected_assigned_to_state'] = []
+
     with st.expander("🙋‍♂️ Filter by Assigned To (Opener)", expanded=False):
+        col_op_btn1, col_op_btn2 = st.columns(2)
+        with col_op_btn1:
+            st.button("Select All", key="op_select_all", on_click=select_all_assigned_to, use_container_width=True)
+        with col_op_btn2:
+            st.button("Clear All", key="op_clear_all", on_click=clear_all_assigned_to, use_container_width=True)
+
         selected_assigned_to = st.multiselect(
             "Select Opener(s)", # Simplified label inside the expander
             options=assigned_to_options,
-            default=assigned_to_options
+            default=st.session_state['selected_assigned_to_state'],
+            key='selected_assigned_to_state'
         )
 
 
@@ -288,8 +379,12 @@ style_metric_cards(
 )
 st.markdown("---")
 
+# 🔴 DELETED SECTION: Performance Analysis Summary logic removed
 
 # ================== 8️⃣ CHARTS: Closer vs Disposition (THE CORE ANALYSIS) ==================
+
+# 🔴 NEW: Define common font size for Plotly charts
+PLOTLY_FONT_SIZE = 14
 
 st.subheader("Distribution Analysis")
 
@@ -301,18 +396,27 @@ with col_chart_1:
     closer_count = filtered_df['Closer Name'].value_counts().reset_index()
     closer_count.columns = ["Closer Name", "Count"]
     
-    fig1 = px.bar(
-        closer_count, 
-        x="Closer Name", 
-        y="Count", 
-        title="Total Leads by Closer Name (Unique MCNs)", 
-        text_auto=True,
-        template='plotly_white',
-        color='Closer Name',
-        color_discrete_sequence=px.colors.qualitative.Pastel
-    )
-    fig1.update_xaxes(categoryorder='total descending')
-    st.plotly_chart(fig1, use_container_width=True)
+    if not closer_count.empty:
+        fig1 = px.bar(
+            closer_count, 
+            x="Closer Name", 
+            y="Count", 
+            title="Total Leads by Closer Name (Unique MCNs)", 
+            text_auto=True,
+            template='plotly_white',
+            color='Closer Name',
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        # 🔴 TWEAK: Increase font size for better readability
+        fig1.update_layout(
+            font=dict(size=PLOTLY_FONT_SIZE),
+            title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+        )
+        fig1.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+        fig1.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
+        st.plotly_chart(fig1, use_container_width=True)
+    else:
+        st.info("No data available to display Closer Name Count based on current filters.")
     
 
 # --- Chart 2: Chasing Disposition Count ---
@@ -320,18 +424,27 @@ with col_chart_2:
     disposition_count = filtered_df['Chasing Disposition'].value_counts().reset_index()
     disposition_count.columns = ["Chasing Disposition", "Count"]
     
-    fig2 = px.bar(
-        disposition_count, 
-        x="Chasing Disposition", 
-        y="Count", 
-        title="Distribution of Chasing Dispositions (Count)", 
-        text_auto=True,
-        template='plotly_white',
-        color='Chasing Disposition',
-        color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
-    )
-    fig2.update_xaxes(categoryorder='total descending')
-    st.plotly_chart(fig2, use_container_width=True)
+    if not disposition_count.empty:
+        fig2 = px.bar(
+            disposition_count, 
+            x="Chasing Disposition", 
+            y="Count", 
+            title="Distribution of Chasing Dispositions (Count)", 
+            text_auto=True,
+            template='plotly_white',
+            color='Chasing Disposition',
+            color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
+        )
+        # 🔴 TWEAK: Increase font size for better readability
+        fig2.update_layout(
+            font=dict(size=PLOTLY_FONT_SIZE),
+            title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+        )
+        fig2.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+        fig2.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("No data available to display Chasing Disposition Count based on current filters.")
 
 
 # --- Chart 3: Closer -> Disposition Treemap (FULL WIDTH) ---
@@ -348,7 +461,12 @@ if not treemap_data.empty:
         color='Chasing Disposition',
         color_discrete_sequence=px.colors.qualitative.Pastel
     )
-    fig3.update_layout(margin = dict(t=50, l=25, r=25, b=25))
+    # 🔴 TWEAK: Increase font size for better readability
+    fig3.update_layout(
+        margin = dict(t=50, l=25, r=25, b=25),
+        font=dict(size=PLOTLY_FONT_SIZE + 2), # Slightly larger font for treemap details
+        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+    )
     st.plotly_chart(fig3, use_container_width=True)
 else:
     st.warning("No data available to display the Treemap based on current filters.")
@@ -370,7 +488,13 @@ if not client_count.empty:
         color='Client',
         color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
     )
-    fig4.update_xaxes(categoryorder='total descending')
+    # 🔴 TWEAK: Increase font size for better readability
+    fig4.update_layout(
+        font=dict(size=PLOTLY_FONT_SIZE),
+        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+    )
+    fig4.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+    fig4.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
     st.plotly_chart(fig4, use_container_width=True)
 else:
     st.warning("No data available to display Client Distribution based on current filters.")
@@ -392,10 +516,16 @@ if not opener_count.empty:
         color='Opener Status',
         color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
     )
-    fig5.update_xaxes(categoryorder='total descending')
+    # 🔴 TWEAK: Increase font size for better readability
+    fig5.update_layout(
+        font=dict(size=PLOTLY_FONT_SIZE),
+        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+    )
+    fig5.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+    fig5.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
     st.plotly_chart(fig5, use_container_width=True)
 else:
-    st.warning("No data available to display Opener Status Distribution based on current filters.")
+    st.info("No data available to display Opener Status Distribution based on current filters.")
 
 st.markdown("---")
 
@@ -409,4 +539,3 @@ if not filtered_df.empty:
     st.dataframe(filtered_df[data_preview_cols], use_container_width=True)
 else:
     st.info("The filtered data table is empty.")
-
