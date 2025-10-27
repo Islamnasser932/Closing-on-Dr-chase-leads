@@ -20,10 +20,10 @@ def load_and_merge_data():
     try:
         # Load Dr_Chase_Leads (using latin-1 as determined previously)
         # Using the absolute path requested by the user for future local edits.
-        dr = pd.read_csv(r"D:\Analysis\Dr Chase 7-10\Dr_Chase_Leads.csv", encoding='latin-1', low_memory=False)
+        dr = pd.read_csv("Dr_Chase_Leads.csv", encoding='latin-1', low_memory=False)
         # Load O_Plan_Leads (using latin-1 as determined previously)
         # Using the absolute path requested by the user for future local edits.
-        oplan = pd.read_csv(r"D:\Analysis\Dr Chase 7-10\O_Plan_Leads.csv", encoding='latin-1', low_memory=False)
+        oplan = pd.read_csv("O_Plan_Leads.csv", encoding='latin-1', low_memory=False)
 
         # ================== 2️⃣ DATA CLEANING & PREP ==================
         
@@ -409,3 +409,4 @@ if not filtered_df.empty:
     st.dataframe(filtered_df[data_preview_cols], use_container_width=True)
 else:
     st.info("The filtered data table is empty.")
+
