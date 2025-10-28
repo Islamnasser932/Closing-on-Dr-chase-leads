@@ -288,19 +288,19 @@ PLOTLY_FONT_SIZE = 14
 
 st.subheader("Distribution Analysis")
 
-# 🔴 تحديث: Chart 1 (Closer Name Count) - عرض كامل
-closer_count = filtered_df['Closer Name'].value_counts().reset_index()
-closer_count.columns = ["Closer Name", "Count"]
+# 🔴 Chart 1: Closer Name Count (FULL WIDTH - Stacked)
+# New Data Prep: Group by Closer Name AND Chasing Disposition
+closer_disposition_summary = filtered_df.groupby(['Closer Name', 'Chasing Disposition']).size().reset_index(name='Count')
 
-if not closer_count.empty:
+if not closer_disposition_summary.empty:
     fig1 = px.bar(
-        closer_count, 
+        closer_disposition_summary, 
         x="Closer Name", 
         y="Count", 
-        title="Total Leads by Closer Name", 
-        text_auto=True,
+        color="Chasing Disposition", # 🔴 Set color for stacking
+        title="Total Leads by Closer Name (Chasing Disposition Breakdown)", # 🔴 Updated title
+        text_auto=False,
         template='plotly_white',
-        color='Closer Name',
         color_discrete_sequence=px.colors.qualitative.Pastel
     )
     fig1.update_layout(
@@ -314,7 +314,7 @@ else:
     st.info("No data available to display Closer Name Count based on current filters.")
     
 
-# 🔴 تحديث: Chart 2 (Chasing Disposition Count) - عرض كامل
+# 🔴 Chart 2: Chasing Disposition Count (FULL WIDTH)
 disposition_count = filtered_df['Chasing Disposition'].value_counts().reset_index()
 disposition_count.columns = ["Chasing Disposition", "Count"]
 
