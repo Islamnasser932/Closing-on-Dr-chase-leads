@@ -358,8 +358,9 @@ treemap_data_agg = treemap_data.groupby(['Closer Name', 'Chasing Disposition']).
 closer_totals = treemap_data_agg.groupby('Closer Name')['Count'].sum().reset_index(name='Closer Total')
 treemap_data_agg = pd.merge(treemap_data_agg, closer_totals, on='Closer Name', how='left')
 treemap_data_agg['Percentage'] = (treemap_data_agg['Count'] / treemap_data_agg['Closer Total'])
+# 🔴 FIX: إزالة <br> لعرض النص في سطر واحد
 treemap_data_agg['Custom Label'] = treemap_data_agg.apply(
-    lambda row: f"{row['Count']:,}<br>({row['Percentage'] * 100:.1f}%)", axis=1
+    lambda row: f"{row['Count']:,} ({row['Percentage'] * 100:.1f}%)", axis=1
 )
 
 if not treemap_data_agg.empty:
@@ -377,9 +378,9 @@ if not treemap_data_agg.empty:
     )
     
     fig3.update_traces(
-        # 🔴 FIX: Use only 'text' to prevent Plotly from combining path labels and custom text
+        # 🔴 FIX: استخدام textinfo="text" فقط ليعرض النص المحسوب في Custom Label
         text=treemap_data_agg['Custom Label'],
-        textinfo="text", # <-- FIXED HERE
+        textinfo="text", 
         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Closer %: %{customdata[3]:.1%}<extra></extra>'
     )
     
