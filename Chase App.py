@@ -325,7 +325,8 @@ with col_chart_2:
     disposition_summary = filtered_df['Chasing Disposition'].value_counts().reset_index(name='Count')
     disposition_summary.columns = ['Disposition', 'Count']
     
-    total_records = disposition_summary['Count'].sum()
+    # 🔴 FIX: Convert sum result to int before using in ProgressColumn max_value
+    total_records = int(disposition_summary['Count'].sum())
     disposition_summary['Percentage'] = (disposition_summary['Count'] / total_records * 100).round(1)
     
     # عرض ملخص الداتا في جدول (أفضل 10 حالات)
