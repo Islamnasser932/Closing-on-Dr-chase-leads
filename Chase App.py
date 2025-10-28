@@ -9,149 +9,87 @@ import math
 
 # ================== 0️⃣ CONFIGURATION ==================
 st.set_page_config(
-    page_title="Closing Report Dashboard",
+    page_title="Dr Chase Performance Report",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ================== 1️⃣ DATA LOADING (with appropriate encoding) ==================
+# ================== 1️⃣ DATA LOADING (Dr Chase only) ==================
 @st.cache_data
-def load_and_merge_data():
+def load_and_enrich_dr_chase_data():
     try:
-        # Load Dr_Chase_Leads (using latin-1 as determined previously)
+        # Load Dr_Chase_Leads
         dr = pd.read_csv("Dr_Chase_Leads.csv", encoding='latin-1', low_memory=False)
-        # Load O_Plan_Leads (using latin-1 as determined previously)
+        # Load O_Plan_Leads (for enrichment only)
         oplan = pd.read_csv("O_Plan_Leads.csv", encoding='latin-1', low_memory=False)
 
-        # ================== 2️⃣ DATA CLEANING & PREP (WITHOUT DEDUP) ==================
+        # ================== 2️⃣ DATA CLEANING & ENRICHMENT ==================
         
-        # --- Date & Time Conversion ---
+        # --- Date & Time Conversion (for DR CHASE) ---
         dr['Modified Time'] = pd.to_datetime(dr['Modified Time'], errors='coerce', dayfirst=True)
-        
-        # Rename and Convert Date of Sale in OPLAN
-        if 'Date of Sale' in oplan.columns:
-            oplan.rename(columns={'Date of Sale': 'Sale Date'}, inplace=True)
-            oplan['Sale Date'] = pd.to_datetime(oplan['Sale Date'], errors='coerce', dayfirst=True)
-        
         date_cols_dr = ["Completion Date", "Assigned date", "Approval date", "Denial Date", "Upload Date"]
         for col in date_cols_dr:
             if col in dr.columns:
                 dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True)
 
-        # --- MCN Standardization and Handling Missing MCNs ---
+        # --- MCN Standardization ---
         for df_data in [dr, oplan]:
             if 'MCN' in df_data.columns:
-                # CRITICAL FIX: Clean MCN by stripping, upper-casing, and dropping NaNs
                 df_data['MCN'] = df_data['MCN'].astype(str).str.strip().str.upper().replace({'NAN': np.nan, '': np.nan}) 
                 df_data.dropna(subset=['MCN'], inplace=True) 
 
         # --- Column Standardization ---
-        
         if 'Chasing Disposition' in dr.columns:
             dr['Chasing Disposition'] = dr['Chasing Disposition'].fillna('N/A - Disposition')
-
-        if 'Opener Status' in oplan.columns:
-            oplan['Opener Status'] = oplan['Opener Status'].fillna('N/A - Status Missing')
         
-        # Clean 'Assigned To' (Opener Name)
-        if 'Assigned To' in oplan.columns:
-            oplan['Assigned To'] = oplan['Assigned To'].fillna('N/A - Assigned Missing')
-            oplan['Assigned To'] = oplan['Assigned To'].str.replace('.', ' ', regex=False).str.title()
-
-
-        # Standardize Client column using Dr Chase version
-        if 'Client' in dr.columns:
-            dr['Client'] = dr['Client'].fillna('N/A - Client Missing')
+        # OPLAN Specific Prep (Minimal cleaning for MCN/Closer)
+        if 'Closer Name' in oplan.columns:
+            oplan['Closer Name'] = oplan['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
         
-        # Drop redundant columns before merging
-        if 'Client' in oplan.columns:
-            oplan.drop(columns=['Client'], inplace=True, errors='ignore')
-        if 'Products' in dr.columns:
-            dr.drop(columns=['Products'], inplace=True, errors='ignore')
-            
-        # 🟢 NEW LOGIC: Enrich Dr Chase with Closer Name from OPlan
+        # 🟢 ENRICHMENT LOGIC: Transfer Closer Name to DR CHASE
         
-        # 1. Prepare OPlan Closer Data (Deduplicate MCNs)
+        # 1. Prepare OPlan Closer Data (Deduplicate MCNs - keep first name)
         oplan_closer_map = oplan[['MCN', 'Closer Name']].copy()
         if 'Closer Name' in oplan_closer_map.columns:
-            oplan_closer_map['Closer Name'] = oplan_closer_map['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
-            # For MCNs with multiple sales, take the first Closer Name associated with it.
             oplan_closer_map.drop_duplicates(subset='MCN', keep='first', inplace=True)
             
             # 2. Enrich Dr Chase Data with Closer Name
-            # Drop any existing/old 'Closer Name' column from Dr Chase if it exists
             if 'Closer Name' in dr.columns:
                 dr.drop(columns=['Closer Name'], inplace=True, errors='ignore')
 
-            # Left Merge OPlan Closer Name into Dr Chase data
             dr = pd.merge(
                 dr,
                 oplan_closer_map,
                 on='MCN',
                 how='left'
             )
-            # Fill Closer Names for Dr Chase MCNs that don't match OPlan (they are truly missing)
+            # Fill Closer Names for Dr Chase MCNs that don't match OPlan (they are truly missing in OPlan sales data)
             dr['Closer Name'] = dr['Closer Name'].fillna('No OPlan Match') 
         
-        # --- Selecting Columns for Merge ---
-        dr_cols = ['MCN', 'Closer Name', 'Dr Chase Lead Number', 'Chasing Disposition', 'Approval date', 'Denial Date', 'Client', 'Completion Date', 'Upload Date', 'Modified Time']
-        oplan_date_col = 'Sale Date' if 'Sale Date' in oplan.columns else 'Date of Sale'
-        
-        oplan_cols = ['MCN', 'O Plan Lead Number', 'Team Leader', 'Products', oplan_date_col, 'Opener Status', 'Assigned To'] # 'Closer Name' removed
+        # Final Dr Chase Column Cleanup (for display simplicity)
+        if 'Client' in dr.columns:
+            dr['Client'] = dr['Client'].fillna('N/A - Client Missing')
 
-
-        # ================== 3️⃣ CORE MERGE OPERATION (Allowing Duplicates) ==================
-        # OPlan Left Merge Dr Chase (using the enriched Dr Chase data)
-        merged_df = pd.merge(
-            oplan[oplan_cols],
-            dr[dr_cols],
-            on='MCN',
-            how='left',
-            suffixes=('_OPLAN', '_DRCHASE')
-        )
-
-        # Fill NaN Chasing Disposition for leads not found in Dr Chase
-        merged_df['Chasing Disposition'] = merged_df['Chasing Disposition'].fillna('No Chase Data (OPlan Only)')
-
-        # 🔴 FINAL CORRECTION: Identify Missing Dr Chase Records (Anti-Join using Unique MCNs)
-        
-        # 1. قائمة MCNs الفريدة في OPlan
-        oplan_mcns = oplan['MCN'].unique()
-        
-        # 2. قائمة MCNs الفريدة في Dr Chase
-        dr_mcns = dr['MCN'].unique()
-        
-        # 3. MCNs المفقودة: MCNs موجودة في Dr Chase وليست موجودة في OPlan
-        missing_mcns_list = np.setdiff1d(dr_mcns, oplan_mcns)
-        
-        # 4. بناء DataFrame المفقودين من dr_df الأصلي
-        dr_missing_oplan = dr[dr['MCN'].isin(missing_mcns_list)].copy()
-        
-        # 5. تنظيف التكرارات في القائمة المفقودة (لكل MCN مفقود، نحتفظ بآخر حالة)
-        if not dr_missing_oplan.empty:
-            dr_missing_oplan = dr_missing_oplan.sort_values(by='Modified Time', ascending=False).drop_duplicates(subset=['MCN'], keep='first').copy()
-        
-        
-        total_oplan_rows = len(oplan)
+        # Since OPlan data is only used for enrichment, we only return the Dr Chase data
         total_dr_rows = len(dr)
         
-        return merged_df, dr, oplan, total_oplan_rows, total_dr_rows, dr_missing_oplan
+        return dr, total_dr_rows
         
     except Exception as e:
         st.error(f"Failed to load data files or process: {e}")
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0, 0, pd.DataFrame() 
+        return pd.DataFrame(), 0 
 
-# 🔴 تحديث: إضافة المتغير الجديد dr_missing_oplan
-merged_df, dr_df, oplan_df, total_oplan_rows, total_dr_rows, dr_missing_oplan = load_and_merge_data()
+# 🔴 تحديث: نستخدم متغير واحد فقط للـ Working Data
+working_df, total_dr_rows = load_and_enrich_dr_chase_data()
 
 # ================== 4️⃣ DASHBOARD LAYOUT & TITLE ==================
-st.title("📊 Closer Performance Analysis")
+st.title("📊 Dr Chase Leads Analysis (Enriched Closer Data)")
 st.markdown("---")
 
 # Check if data loaded successfully
-if merged_df.empty:
-    st.warning("Failed to load or merge data. Please check file names and paths.")
+if working_df.empty:
+    st.warning("Failed to load Dr Chase data. Please check file name and paths.")
     st.stop()
 
 # NEW: Add custom CSS for general font improvements (larger base font, better legibility)
@@ -187,12 +125,12 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# ================== 5️⃣ SIDEBAR FILTERS (IMPROVED COMPACTNESS) ==================
+# ================== 5️⃣ SIDEBAR FILTERS ==================
 with st.sidebar:
     st.header("⚙️ Data Filters")
     
     # 1. Closer Name Filter
-    closer_options = sorted(merged_df['Closer Name'].astype(str).unique())
+    closer_options = sorted(working_df['Closer Name'].astype(str).unique())
     
     target_closers = ['Aila Patrick', 'Lisa Hanz', 'Athina Henderson', 'Jordan Williams', 'Lauren Bailey', 'Linda Anderson', 'Maeve White', 'Raven Miller', 'Summer Hudson', 'Marcelle David', 'Lily Williams']
     
@@ -212,7 +150,6 @@ with st.sidebar:
     def clear_all_closers():
         st.session_state['selected_closers_state'] = []
 
-    # 🔴 FIX: Clean the session state against current options before rendering
     if 'selected_closers_state' in st.session_state:
         st.session_state['selected_closers_state'] = [
             c for c in st.session_state['selected_closers_state'] if c in closer_options
@@ -249,87 +186,53 @@ with st.sidebar:
     with st.expander("⬇️ Advanced Filters: Disposition & Opener", expanded=False):
         
         # 2. Chasing Disposition Filter
-        disposition_options = sorted(merged_df['Chasing Disposition'].unique())
+        disposition_options = sorted(working_df['Chasing Disposition'].unique())
         
-        default_dispositions = [disp for disp in disposition_options if disp != 'No Chase Data (OPlan Only)']
+        default_dispositions = disposition_options
         selected_dispositions = st.multiselect(
             "🏷️ Chasing Disposition", 
             options=disposition_options,
             default=default_dispositions
         )
         
-        # 3. Opener Status Filter
-        opener_options = sorted(merged_df['Opener Status'].unique())
-        selected_openers = st.multiselect(
-            "🚀 Opener Status", 
-            options=opener_options,
-            default=opener_options
-        )
-    
+        # 3. Opener Status Filter (Removed since Opener Status is OPlan specific)
+        
         # 4. Client Filter
-        merged_df['Client'] = merged_df['Client'].astype(str)
-        client_options = sorted(merged_df['Client'].unique())
+        working_df['Client'] = working_df['Client'].astype(str)
+        client_options = sorted(working_df['Client'].unique())
         selected_clients = st.multiselect(
             "💼 Client", 
             options=client_options,
             default=client_options
         )
         
-    # Assigned To filter
-    assigned_to_options = sorted(merged_df['Assigned To'].unique())
-
-    # --- Assigned To Action Buttons ---
-    if 'selected_assigned_to_state' not in st.session_state:
-        st.session_state['selected_assigned_to_state'] = assigned_to_options
-
-    def select_all_assigned_to():
-        st.session_state['selected_assigned_to_state'] = assigned_to_options
-    
-    def clear_all_assigned_to():
-        st.session_state['selected_assigned_to_state'] = []
-
-    with st.expander("🙋‍♂️ Filter by Assigned To (Opener)", expanded=False):
-        col_op_btn1, col_op_btn2 = st.columns(2)
-        with col_op_btn1:
-            st.button("Select All", key="op_select_all", on_click=select_all_assigned_to, use_container_width=True)
-        with col_op_btn2:
-            st.button("Clear All", key="op_clear_all", on_click=clear_all_assigned_to, use_container_width=True)
-
-        selected_assigned_to = st.multiselect(
-            "Select Opener(s)", 
-            options=assigned_to_options,
-            default=st.session_state['selected_assigned_to_state'],
-            key='selected_assigned_to_state'
-        )
-
+    # Assigned To filter (Removed since Assigned To is OPlan specific)
 
     st.markdown("---")
     st.subheader("📚 Dataset Information")
-    st.metric("Total OPlan Records (Initial)", f"{total_oplan_rows:,}")
+    # 🔴 تحديث KPIs الشريط الجانبي
     st.metric("Total Dr Chase Records (Initial)", f"{total_dr_rows:,}")
-    st.metric("Total Merged Records (All Matches)", f"{len(merged_df):,}")
+    st.metric("Dr Chase MCNs (Unique)", f"{working_df['MCN'].nunique():,}")
+    st.metric("Total Rows in Dashboard", f"{len(working_df):,}")
 
 
 # ================== 6️⃣ APPLY FILTERS ==================
 active_closers = selected_closers_sidebar
 
 
-filtered_df = merged_df.copy()
+filtered_df = working_df.copy()
 
 # Apply the active closer filter
 if active_closers:
     filtered_df = filtered_df[filtered_df['Closer Name'].isin(active_closers)]
 
 # Apply other filters
-if selected_assigned_to:
-    filtered_df = filtered_df[filtered_df['Assigned To'].isin(selected_assigned_to)]
+# 🔴 إزالة فلتر Assigned To
+# 🔴 إزالة فلتر Opener Status
 
 if selected_dispositions:
     filtered_df = filtered_df[filtered_df['Chasing Disposition'].isin(selected_dispositions)]
     
-if selected_openers:
-    filtered_df = filtered_df[filtered_df['Opener Status'].isin(selected_openers)]
-
 if selected_clients:
     filtered_df = filtered_df[filtered_df['Client'].isin(selected_clients)]
 
@@ -340,55 +243,42 @@ total_filtered_leads = len(filtered_df)
 # ================== 7️⃣ KPIs (Key Metrics) ==================
 st.subheader("Key Performance Indicators (KPIs)")
 
-# Metrics derived from the MERGED (OPlan/Dr Chase) data
-total_leads = len(merged_df)
+# Metrics derived only from the DR CHASE data (Enriched)
+total_leads = len(working_df)
 leads_after_filter = len(filtered_df)
-
-# 🔴 FIX: Records Chased = Total Rows Matched AND Filtered
-leads_chased_df = filtered_df[filtered_df['Chasing Disposition'] != 'No Chase Data (OPlan Only)']
-leads_chased = leads_chased_df.shape[0] # Changed to count all rows (Shape[0])
+# Records Chased: Since this is Dr Chase data, all filtered records are considered "chased" MCNs
+leads_chased = leads_after_filter
 
 # --- KPI CALCULATION ---
-# نحدد الـ MCNs الفريدة التي حققت حالة معينة في DR CHASE
-if all(col in dr_df.columns for col in ['Completion Date', 'Upload Date', 'Approval date', 'Denial Date']):
+# KPIs based on non-null values in the DR CHASE file
+if all(col in filtered_df.columns for col in ['Completion Date', 'Approval date', 'Denial Date', 'Upload Date']):
     
-    completed_mcns = dr_df.dropna(subset=['Completion Date'])['MCN'].unique()
-    uploaded_mcns = dr_df.dropna(subset=['Upload Date'])['MCN'].unique()
-    approved_mcns = dr_df.dropna(subset=['Approval date'])['MCN'].unique()
-    denied_mcns = dr_df.dropna(subset=['Denial Date'])['MCN'].unique()
-    
-    # ثم نحسب عدد السجلات في filtered_df التي تتطابق مع هذه الـ MCNs
-    # نستخدم عدد الصفوف هنا لأنه يعكس تضخم الدمج
-    filtered_completed = filtered_df[filtered_df['MCN'].isin(completed_mcns)].shape[0]
-    filtered_uploaded = filtered_df[filtered_df['MCN'].isin(uploaded_mcns)].shape[0]
-    filtered_approved = filtered_df[filtered_df['MCN'].isin(approved_mcns)].shape[0]
-    filtered_denied = filtered_df[filtered_df['MCN'].isin(denied_mcns)].shape[0]
+    filtered_completed = filtered_df['Completion Date'].notna().sum()
+    filtered_approved = filtered_df['Approval date'].notna().sum()
+    filtered_denied = filtered_df['Denial Date'].notna().sum()
+    filtered_uploaded = filtered_df['Upload Date'].notna().sum()
 else:
-    filtered_completed = 0
-    filtered_uploaded = 0
-    filtered_approved = 0
-    filtered_denied = 0
+    filtered_completed = filtered_approved = filtered_denied = filtered_uploaded = 0
 
-# Calculate percentages (based on chased leads for status KPIs)
-pct_chased = (leads_chased / leads_after_filter * 100) if leads_after_filter > 0 else 0
-# 🟢 هنا نستخدم Total Filtered Records (Leads after filter) للمقام
-pct_completed = (filtered_completed / leads_after_filter * 100) if leads_after_filter > 0 else 0
-pct_uploaded = (filtered_uploaded / leads_after_filter * 100) if leads_after_filter > 0 else 0
-pct_approved = (filtered_approved / leads_after_filter * 100) if leads_after_filter > 0 else 0
-pct_denied = (filtered_denied / leads_after_filter * 100) if leads_after_filter > 0 else 0
+# Calculate percentages (based on Total Filtered Records, which is now 'Records Chased')
+pct_chased = (leads_chased / total_leads * 100) if total_leads > 0 else 0 # % of initial total
+pct_completed = (filtered_completed / leads_chased * 100) if leads_chased > 0 else 0
+pct_uploaded = (filtered_uploaded / leads_chased * 100) if leads_chased > 0 else 0
+pct_approved = (filtered_approved / leads_chased * 100) if leads_chased > 0 else 0
+pct_denied = (filtered_denied / leads_chased * 100) if leads_chased > 0 else 0
 
 
 # --- KPI DISPLAY (6 columns) ---
 col1, col2, col5, col6, col3, col4 = st.columns(6)
 
 col1.metric("Total Filtered Records", f"{leads_after_filter:,}", f"out of {total_leads:,}")
-col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Filtered")
+col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Initial")
 
-col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Filtered")
-col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Filtered")
+col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
+col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Chased")
 
-col3.metric("Completed", f"{filtered_completed:,}", f"{pct_completed:.1f}% of Filtered")
-col4.metric("Uploaded", f"{filtered_uploaded:,}", f"{pct_uploaded:.1f}% of Filtered")
+col3.metric("Completed", f"{filtered_completed:,}", f"{pct_completed:.1f}% of Chased")
+col4.metric("Uploaded", f"{filtered_uploaded:,}", f"{pct_uploaded:.1f}% of Chased")
 
 
 # Apply custom styling to the metric cards
@@ -418,7 +308,7 @@ with col_chart_1:
             closer_count, 
             x="Closer Name", 
             y="Count", 
-            title="Total Leads by Closer Name (All Records)", 
+            title="Total Leads by Closer Name", 
             text_auto=True,
             template='plotly_white',
             color='Closer Name',
@@ -512,71 +402,23 @@ else:
 
 
 # --- Chart 5: Opener Status Count (Full Width) ---
-st.subheader("Opener Status Distribution")
-opener_count = filtered_df['Opener Status'].value_counts().reset_index()
-opener_count.columns = ["Opener Status", "Count"]
+st.subheader("Opener Status Distribution (Not Available)")
+st.info("Opener Status data is derived from the OPlan file, which is not the primary dataset source in this mode.")
 
-if not opener_count.empty:
-    fig5 = px.bar(
-        opener_count, 
-        x="Opener Status", 
-        y="Count", 
-        title="Leads by Opener Status (Count)", 
-        text_auto=True,
-        template='plotly_white',
-        color='Opener Status',
-        color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
-    )
-    fig5.update_layout(
-        font=dict(size=PLOTLY_FONT_SIZE),
-        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
-    )
-    fig5.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
-    fig5.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
-    st.plotly_chart(fig5, use_container_width=True)
-else:
-    st.info("No data available to display Opener Status Distribution based on current filters.")
 
 st.markdown("---")
 
 # ================== 9️⃣ DATA TABLE PREVIEW ==================
-st.subheader("📋 Merged and Filtered Data Preview")
-data_preview_cols = ['MCN', 'Closer Name', 'Opener Status', 'Chasing Disposition', 'Products', 
-                     'Approval date', 'Denial Date', 'Client', 'Assigned To']
+st.subheader("📋 Filtered Dr Chase Data Preview")
+data_preview_cols = ['MCN', 'Closer Name', 'Chasing Disposition', 'Client', 'Dr Chase Lead Number', 
+                     'Approval date', 'Denial Date', 'Completion Date', 'Assigned date']
+
+# Filter available columns for display
+available_preview_cols = [col for col in data_preview_cols if col in filtered_df.columns]
 
 if not filtered_df.empty:
-    st.dataframe(filtered_df[data_preview_cols], use_container_width=True)
+    st.dataframe(filtered_df[available_preview_cols], use_container_width=True)
 else:
     st.info("The filtered data table is empty.")
 
-# ================== 🔟 MISSING DATA WARNING (NEW SECTION) ==================
-if not dr_missing_oplan.empty:
-    missing_count = len(dr_missing_oplan)
-    total_dr_mcns = dr_df['MCN'].nunique()
-    
-    st.warning(
-        f"⚠️ **{missing_count:,} Records in Dr Chase Missing OPlan Match**"
-    )
-    st.info(
-        f"There are **{missing_count:,} unique Dr Chase records** that do not have a matching 'Sale' record in OPlan based on MCN. "
-        f"This represents **{missing_count / total_dr_mcns * 100:.1f}%** of all Dr Chase MCNs ({total_dr_mcns:,})."
-    )
-    
-    with st.expander("🔍 View Dr Chase Records with No OPlan Match"):
-        missing_display_cols = [
-            'MCN', 
-            'Closer Name', # الآن يظهر 'No OPlan Match' في هذا العمود
-            'Chasing Disposition', 
-            'Client', 
-            'Modified Time', 
-            'Completion Date', 
-            'Approval date',
-            'Denial Date'
-        ]
-        
-        available_missing_cols = [col for col in missing_display_cols if col in dr_missing_oplan.columns]
-        
-        st.dataframe(
-            dr_missing_oplan[available_missing_cols],
-            use_container_width=True
-        )
+# ================== 🔟 MISSING DATA WARNING (REMOVED) ==================
