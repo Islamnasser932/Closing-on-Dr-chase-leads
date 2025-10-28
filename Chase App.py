@@ -260,7 +260,7 @@ pct_denied = (filtered_denied / leads_chased * 100) if leads_chased > 0 else 0
 # --- KPI DISPLAY (5 columns) ---
 col2, col5, col6, col3, col4 = st.columns(5) 
 
-# 🔴 تعديل: إزالة f"{pct_chased:.1f}% of Initial" من هذا المؤشر
+# 🔴 Records Chased (Removed percentage in delta)
 col2.metric("Records Chased", f"{leads_chased:,}", "") 
 
 col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
@@ -271,10 +271,13 @@ col4.metric("Uploaded", f"{filtered_uploaded:,}", f"{pct_uploaded:.1f}% of Chase
 
 
 # Apply custom styling to the metric cards
+# 🎨 New Style Applied Here
 style_metric_cards(
-    background_color="#121270",
-    border_left_color="#f20045",
-    box_shadow="3px 3px 10px rgba(0,0,0,0.3)"
+    background_color="#1F2630", 
+    border_left_color="#00C49F", 
+    border_radius_px=10,
+    border_size_px=2,
+    box_shadow="0 4px 12px rgba(0, 196, 159, 0.2)" 
 )
 st.markdown("---")
 
