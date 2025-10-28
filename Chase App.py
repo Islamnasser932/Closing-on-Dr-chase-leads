@@ -378,9 +378,9 @@ if not treemap_data_agg.empty:
     )
     
     fig3.update_traces(
-        # 🔴 FIX: استخدام textinfo="text" فقط ليعرض النص المحسوب في Custom Label
-        text=treemap_data_agg['Custom Label'],
-        textinfo="text", 
+        # 🔴 FIX: استخدام textinfo="label" لعرض اسم التصنيف فقط (Dr Denied)
+        # هذا هو التصحيح المطلوب لعرض اسم الفئة بدلاً من الأرقام المشوهة.
+        textinfo="label", 
         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Closer %: %{customdata[3]:.1%}<extra></extra>'
     )
     
