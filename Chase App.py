@@ -315,7 +315,8 @@ st.subheader("Key Performance Indicators (KPIs)")
 total_leads = len(merged_df)
 leads_after_filter = len(filtered_df)
 # leads_chased: عدد السجلات المفلترة التي لها بيانات متابعة في Dr Chase
-leads_chased = filtered_df[filtered_df['Chasing Disposition'] != 'No Chase Data (OPlan Only)'].shape[0]
+leads_chased_df = filtered_df[filtered_df['Chasing Disposition'] != 'No Chase Data (OPlan Only)']
+leads_chased = leads_chased_df['MCN'].nunique()
 
 # --- KPI CALCULATION ---
 # نحدد الـ MCNs الفريدة التي حققت حالة معينة في DR CHASE
@@ -545,3 +546,4 @@ if not dr_missing_oplan.empty:
             dr_missing_oplan[available_missing_cols],
             use_container_width=True
         )
+
