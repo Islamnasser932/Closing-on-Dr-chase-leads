@@ -9,7 +9,8 @@ import math
 
 # ================== 0️⃣ CONFIGURATION ==================
 st.set_page_config(
-    page_title="Dr Chase Performance Report",
+    # 🔴 تحديث: تغيير page_title
+    page_title="Closing Analysis on Dr chase Leads",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -83,6 +84,7 @@ def load_and_enrich_dr_chase_data():
 working_df, total_dr_rows = load_and_enrich_dr_chase_data()
 
 # ================== 4️⃣ DASHBOARD LAYOUT & TITLE ==================
+# 🔴 تحديث: تغيير عنوان الداشبورد الرئيسي
 st.title("📊 Closing Analysis on Dr chase Leads")
 st.markdown("---")
 
@@ -271,7 +273,6 @@ col4.metric("Uploaded", f"{filtered_uploaded:,}", f"{pct_uploaded:.1f}% of Chase
 
 
 # Apply custom styling to the metric cards
-# 🎨 New Style Applied Here
 style_metric_cards(
     background_color="#1F2630", 
     border_left_color="#00C49F", 
@@ -287,61 +288,56 @@ PLOTLY_FONT_SIZE = 14
 
 st.subheader("Distribution Analysis")
 
-# Row 1: Closer and Disposition Counts (Side-by-side)
-col_chart_1, col_chart_2 = st.columns(2)
+# 🔴 تحديث: Chart 1 (Closer Name Count) - عرض كامل
+closer_count = filtered_df['Closer Name'].value_counts().reset_index()
+closer_count.columns = ["Closer Name", "Count"]
 
-# --- Chart 1: Closer Name Count ---
-with col_chart_1:
-    closer_count = filtered_df['Closer Name'].value_counts().reset_index()
-    closer_count.columns = ["Closer Name", "Count"]
-    
-    if not closer_count.empty:
-        fig1 = px.bar(
-            closer_count, 
-            x="Closer Name", 
-            y="Count", 
-            title="Total Leads by Closer Name", 
-            text_auto=True,
-            template='plotly_white',
-            color='Closer Name',
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        fig1.update_layout(
-            font=dict(size=PLOTLY_FONT_SIZE),
-            title_font=dict(size=PLOTLY_FONT_SIZE + 4)
-        )
-        fig1.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
-        fig1.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
-        st.plotly_chart(fig1, use_container_width=True)
-    else:
-        st.info("No data available to display Closer Name Count based on current filters.")
+if not closer_count.empty:
+    fig1 = px.bar(
+        closer_count, 
+        x="Closer Name", 
+        y="Count", 
+        title="Total Leads by Closer Name", 
+        text_auto=True,
+        template='plotly_white',
+        color='Closer Name',
+        color_discrete_sequence=px.colors.qualitative.Pastel
+    )
+    fig1.update_layout(
+        font=dict(size=PLOTLY_FONT_SIZE),
+        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+    )
+    fig1.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+    fig1.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
+    st.plotly_chart(fig1, use_container_width=True)
+else:
+    st.info("No data available to display Closer Name Count based on current filters.")
     
 
-# --- Chart 2: Chasing Disposition Count ---
-with col_chart_2:
-    disposition_count = filtered_df['Chasing Disposition'].value_counts().reset_index()
-    disposition_count.columns = ["Chasing Disposition", "Count"]
-    
-    if not disposition_count.empty:
-        fig2 = px.bar(
-            disposition_count, 
-            x="Chasing Disposition", 
-            y="Count", 
-            title="Distribution of Chasing Dispositions (Count)", 
-            text_auto=True,
-            template='plotly_white',
-            color='Chasing Disposition',
-            color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
-        )
-        fig2.update_layout(
-            font=dict(size=PLOTLY_FONT_SIZE),
-            title_font=dict(size=PLOTLY_FONT_SIZE + 4)
-        )
-        fig2.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
-        fig2.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
-        st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.info("No data available to display Chasing Disposition Count based on current filters.")
+# 🔴 تحديث: Chart 2 (Chasing Disposition Count) - عرض كامل
+disposition_count = filtered_df['Chasing Disposition'].value_counts().reset_index()
+disposition_count.columns = ["Chasing Disposition", "Count"]
+
+if not disposition_count.empty:
+    fig2 = px.bar(
+        disposition_count, 
+        x="Chasing Disposition", 
+        y="Count", 
+        title="Distribution of Chasing Dispositions (Count)", 
+        text_auto=True,
+        template='plotly_white',
+        color='Chasing Disposition',
+        color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
+    )
+    fig2.update_layout(
+        font=dict(size=PLOTLY_FONT_SIZE),
+        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+    )
+    fig2.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+    fig2.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
+    st.plotly_chart(fig2, use_container_width=True)
+else:
+    st.info("No data available to display Chasing Disposition Count based on current filters.")
 
 
 # --- Chart 3: Closer -> Disposition Treemap (FULL WIDTH) ---
@@ -411,4 +407,3 @@ else:
     st.info("The filtered data table is empty.")
 
 # ================== 🔟 MISSING DATA WARNING (REMOVED) ==================
-
