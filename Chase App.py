@@ -46,7 +46,6 @@ def load_and_merge_data():
 
         # --- Column Standardization ---
         if 'Closer Name' in oplan.columns:
-            # تنظيف Close Name لإزالة أي مسافات بادئة/لاحقة
             oplan['Closer Name'] = oplan['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
         
         if 'Chasing Disposition' in dr.columns:
@@ -90,16 +89,24 @@ def load_and_merge_data():
         # Fill NaN Chasing Disposition for leads not found in Dr Chase
         merged_df['Chasing Disposition'] = merged_df['Chasing Disposition'].fillna('No Chase Data (OPlan Only)')
 
-        # Anti-Join for Dr Chase missing OPlan Match
-        dr_missing_oplan = pd.merge(
-            dr[dr_cols],
-            oplan[['MCN', 'Closer Name']],
-            on='MCN',
-            how='left',
-            indicator=True
-        ).query('_merge == "left_only"').drop(columns=['_merge']).copy()
+        # 🔴 CORRECTION: Identify Missing Dr Chase Records (Anti-Join using Unique MCNs)
         
-        dr_missing_oplan = dr_missing_oplan.sort_values(by='Modified Time', ascending=False).drop_duplicates(subset=['MCN'], keep='first').copy()
+        # 1. قائمة MCNs الفريدة التي لديها سجلات في OPlan
+        oplan_mcns = oplan['MCN'].unique()
+        
+        # 2. قائمة MCNs الفريدة التي لديها سجلات في Dr Chase
+        dr_mcns = dr['MCN'].unique()
+        
+        # 3. MCNs المفقودة: MCNs موجودة في Dr Chase وليست موجودة في OPlan
+        missing_mcns_list = np.setdiff1d(dr_mcns, oplan_mcns)
+        
+        # 4. بناء DataFrame المفقودين من dr_df الأصلي، ثم اختيار آخر سجل معدل لكل MCN مفقود
+        dr_missing_oplan = dr[dr['MCN'].isin(missing_mcns_list)].copy()
+        
+        # 5. تنظيف التكرارات في القائمة المفقودة (لكل MCN مفقود، نحتفظ بآخر حالة)
+        if not dr_missing_oplan.empty:
+            dr_missing_oplan = dr_missing_oplan.sort_values(by='Modified Time', ascending=False).drop_duplicates(subset=['MCN'], keep='first').copy()
+        
         
         total_oplan_rows = len(oplan)
         total_dr_rows = len(dr)
@@ -110,6 +117,7 @@ def load_and_merge_data():
         st.error(f"Failed to load data files or process: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0, 0, pd.DataFrame() 
 
+# 🔴 تحديث: إضافة المتغير الجديد dr_missing_oplan
 merged_df, dr_df, oplan_df, total_oplan_rows, total_dr_rows, dr_missing_oplan = load_and_merge_data()
 
 # ================== 4️⃣ DASHBOARD LAYOUT & TITLE ==================
@@ -159,12 +167,10 @@ with st.sidebar:
     st.header("⚙️ Data Filters")
     
     # 1. Closer Name Filter
-    # 🔴 التأكد من أن القائمة فريدة ونظيفة
     closer_options = sorted(merged_df['Closer Name'].astype(str).unique())
     
     target_closers = ['Aila Patrick', 'Lisa Hanz', 'Athina Henderson', 'Jordan Williams', 'Lauren Bailey', 'Linda Anderson', 'Maeve White', 'Raven Miller', 'Summer Hudson', 'Marcelle David', 'Lily Williams']
     
-    # قائمة Closers الافتراضية المفلترة للتأكد من وجودها
     default_closers = [c for c in target_closers if c in closer_options]
     if not default_closers and closer_options:
         default_closers = closer_options[:5] 
@@ -172,21 +178,17 @@ with st.sidebar:
     
     # --- Filter Action Buttons (Closer) ---
     
-    # Function to select the default closers
     def select_default_closers():
         st.session_state['selected_closers_state'] = default_closers
         
-    # Function to select ALL closers
     def select_all_closers():
         st.session_state['selected_closers_state'] = closer_options
         
-    # Function to clear all closers
     def clear_all_closers():
         st.session_state['selected_closers_state'] = []
 
-    # 🔴 FIX: Initialize session state with ALL CLOSERS إذا لم تكن محددة بعد (لتجنب الخطأ عند التشغيل الأول)
     if 'selected_closers_state' not in st.session_state:
-        st.session_state['selected_closers_state'] = closer_options # Select ALL on startup
+        st.session_state['selected_closers_state'] = closer_options
         
     def update_closer_selection():
         pass
@@ -208,7 +210,6 @@ with st.sidebar:
     selected_closers_sidebar = st.multiselect(
         "🧑‍💼 Closer Name",
         options=closer_options,
-        # 🔴 FIX: استخدام st.session_state لـ default
         default=st.session_state['selected_closers_state'], 
         key='selected_closers_state',
         on_change=update_closer_selection
