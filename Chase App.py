@@ -79,7 +79,6 @@ def load_and_merge_data():
         oplan_cols = ['MCN', 'O Plan Lead Number', 'Closer Name', 'Team Leader', 'Products', oplan_date_col, 'Opener Status', 'Assigned To']
 
         # ================== 3️⃣ CORE MERGE OPERATION (Allowing Duplicates) ==================
-        # نستخدم how='left' للحفاظ على جميع سجلات OPLAN ومطابقتها مع جميع سجلات DR CHASE التي تحمل نفس MCN.
         merged_df = pd.merge(
             oplan[oplan_cols],
             dr[dr_cols],
@@ -164,7 +163,13 @@ with st.sidebar:
     
     # Function to select the default closers
     def select_default_closers():
+        # 🔴 تحديد مجموعة الـ Closers الافتراضية
         st.session_state['selected_closers_state'] = default_closers
+        
+    # Function to select ALL closers (NEW)
+    def select_all_closers():
+        # 🔴 تحديد جميع الـ Closers المتاحة
+        st.session_state['selected_closers_state'] = closer_options
         
     # Function to clear all closers
     def clear_all_closers():
@@ -179,10 +184,16 @@ with st.sidebar:
 
     
     # Buttons for fast action
-    with col_closer_btn1:
-        st.button("Select Default", on_click=select_default_closers, use_container_width=True)
-    with col_closer_btn2:
-        st.button("Clear All", on_click=clear_all_closers, use_container_width=True)
+    col_closer_btn_all, col_closer_btn_default, col_closer_btn_clear = st.columns(3)
+    
+    with col_closer_btn_all:
+        st.button("Select All", on_click=select_all_closers, use_container_width=True, key='closer_select_all_btn')
+        
+    with col_closer_btn_default:
+        st.button("Select Default", on_click=select_default_closers, use_container_width=True, key='closer_select_default_btn')
+        
+    with col_closer_btn_clear:
+        st.button("Clear All", on_click=clear_all_closers, use_container_width=True, key='closer_clear_all_btn')
     
     # --- Filter for Sidebar ---
     selected_closers_sidebar = st.multiselect(
@@ -255,7 +266,6 @@ with st.sidebar:
 
     st.markdown("---")
     st.subheader("📚 Dataset Information")
-    # تحديث: استخدام المتغيرات الجديدة التي تحمل أعداد الصفوف الأصلية
     st.metric("Total OPlan Records (Initial)", f"{total_oplan_rows:,}")
     st.metric("Total Dr Chase Records (Initial)", f"{total_dr_rows:,}")
     st.metric("Total Merged Records (All Matches)", f"{len(merged_df):,}")
@@ -365,7 +375,7 @@ with col_chart_1:
             closer_count, 
             x="Closer Name", 
             y="Count", 
-            title="Total Leads by Closer Name (All Records)", # تحديث العنوان
+            title="Total Leads by Closer Name (All Records)", 
             text_auto=True,
             template='plotly_white',
             color='Closer Name',
