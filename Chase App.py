@@ -19,9 +19,9 @@ st.set_page_config(
 @st.cache_data
 def load_and_enrich_dr_chase_data():
     try:
-        # Load Dr_Chase_Leads
+        # Load Dr_Chase_Leads (Primary Data Source)
         dr = pd.read_csv("Dr_Chase_Leads.csv", encoding='latin-1', low_memory=False)
-        # Load O_Plan_Leads (for enrichment only)
+        # Load O_Plan_Leads (for Closer Name enrichment ONLY)
         oplan = pd.read_csv("O_Plan_Leads.csv", encoding='latin-1', low_memory=False)
 
         # ================== 2️⃣ DATA CLEANING & ENRICHMENT ==================
@@ -42,16 +42,18 @@ def load_and_enrich_dr_chase_data():
         # --- Column Standardization ---
         if 'Chasing Disposition' in dr.columns:
             dr['Chasing Disposition'] = dr['Chasing Disposition'].fillna('N/A - Disposition')
-        
-        # OPLAN Specific Prep (Minimal cleaning for MCN/Closer)
-        if 'Closer Name' in oplan.columns:
-            oplan['Closer Name'] = oplan['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
-        
+
+        # Final Dr Chase Column Cleanup (for display simplicity)
+        if 'Client' in dr.columns:
+            dr['Client'] = dr['Client'].fillna('N/A - Client Missing')
+            
         # 🟢 ENRICHMENT LOGIC: Transfer Closer Name to DR CHASE
         
         # 1. Prepare OPlan Closer Data (Deduplicate MCNs - keep first name)
         oplan_closer_map = oplan[['MCN', 'Closer Name']].copy()
         if 'Closer Name' in oplan_closer_map.columns:
+            oplan_closer_map['Closer Name'] = oplan_closer_map['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
+            # For MCNs with multiple sales, take the first Closer Name associated with it.
             oplan_closer_map.drop_duplicates(subset='MCN', keep='first', inplace=True)
             
             # 2. Enrich Dr Chase Data with Closer Name
@@ -64,27 +66,24 @@ def load_and_enrich_dr_chase_data():
                 on='MCN',
                 how='left'
             )
-            # Fill Closer Names for Dr Chase MCNs that don't match OPlan (they are truly missing in OPlan sales data)
+            # Fill Closer Names for Dr Chase MCNs that don't match OPlan 
             dr['Closer Name'] = dr['Closer Name'].fillna('No OPlan Match') 
         
-        # Final Dr Chase Column Cleanup (for display simplicity)
-        if 'Client' in dr.columns:
-            dr['Client'] = dr['Client'].fillna('N/A - Client Missing')
-
-        # Since OPlan data is only used for enrichment, we only return the Dr Chase data
+        # We only return the enriched Dr Chase data
         total_dr_rows = len(dr)
         
         return dr, total_dr_rows
         
     except Exception as e:
         st.error(f"Failed to load data files or process: {e}")
+        # Returns empty DataFrame on failure
         return pd.DataFrame(), 0 
 
 # 🔴 تحديث: نستخدم متغير واحد فقط للـ Working Data
 working_df, total_dr_rows = load_and_enrich_dr_chase_data()
 
 # ================== 4️⃣ DASHBOARD LAYOUT & TITLE ==================
-st.title("📊 Dr Chase Leads Analysis (Enriched Closer Data)")
+st.title("📊 Dr Chase Leads Analysis (Standalone)")
 st.markdown("---")
 
 # Check if data loaded successfully
@@ -183,7 +182,7 @@ with st.sidebar:
     )
     
     # Use expander for primary secondary filters
-    with st.expander("⬇️ Advanced Filters: Disposition & Opener", expanded=False):
+    with st.expander("⬇️ Advanced Filters: Disposition & Client", expanded=False):
         
         # 2. Chasing Disposition Filter
         disposition_options = sorted(working_df['Chasing Disposition'].unique())
@@ -195,8 +194,6 @@ with st.sidebar:
             default=default_dispositions
         )
         
-        # 3. Opener Status Filter (Removed since Opener Status is OPlan specific)
-        
         # 4. Client Filter
         working_df['Client'] = working_df['Client'].astype(str)
         client_options = sorted(working_df['Client'].unique())
@@ -206,12 +203,12 @@ with st.sidebar:
             default=client_options
         )
         
-    # Assigned To filter (Removed since Assigned To is OPlan specific)
+    # 🔴 إزالة فلاتر Opener Status و Assigned To 
 
     st.markdown("---")
     st.subheader("📚 Dataset Information")
-    # 🔴 تحديث KPIs الشريط الجانبي
-    st.metric("Total Dr Chase Records (Initial)", f"{total_dr_rows:,}")
+    # 🔴 مؤشرات Dataset Information تعتمد الآن على ملف Dr Chase فقط
+    st.metric("Total Records (Initial)", f"{total_dr_rows:,}")
     st.metric("Dr Chase MCNs (Unique)", f"{working_df['MCN'].nunique():,}")
     st.metric("Total Rows in Dashboard", f"{len(working_df):,}")
 
@@ -227,9 +224,6 @@ if active_closers:
     filtered_df = filtered_df[filtered_df['Closer Name'].isin(active_closers)]
 
 # Apply other filters
-# 🔴 إزالة فلتر Assigned To
-# 🔴 إزالة فلتر Opener Status
-
 if selected_dispositions:
     filtered_df = filtered_df[filtered_df['Chasing Disposition'].isin(selected_dispositions)]
     
@@ -246,7 +240,7 @@ st.subheader("Key Performance Indicators (KPIs)")
 # Metrics derived only from the DR CHASE data (Enriched)
 total_leads = len(working_df)
 leads_after_filter = len(filtered_df)
-# Records Chased: Since this is Dr Chase data, all filtered records are considered "chased" MCNs
+# Records Chased: Since this is Dr Chase data, all filtered records are the "Chased Records"
 leads_chased = leads_after_filter
 
 # --- KPI CALCULATION ---
@@ -260,8 +254,8 @@ if all(col in filtered_df.columns for col in ['Completion Date', 'Approval date'
 else:
     filtered_completed = filtered_approved = filtered_denied = filtered_uploaded = 0
 
-# Calculate percentages (based on Total Filtered Records, which is now 'Records Chased')
-pct_chased = (leads_chased / total_leads * 100) if total_leads > 0 else 0 # % of initial total
+# Calculate percentages (based on Total Filtered Records)
+pct_chased = (leads_chased / total_leads * 100) if total_leads > 0 else 0 
 pct_completed = (filtered_completed / leads_chased * 100) if leads_chased > 0 else 0
 pct_uploaded = (filtered_uploaded / leads_chased * 100) if leads_chased > 0 else 0
 pct_approved = (filtered_approved / leads_chased * 100) if leads_chased > 0 else 0
@@ -272,7 +266,7 @@ pct_denied = (filtered_denied / leads_chased * 100) if leads_chased > 0 else 0
 col1, col2, col5, col6, col3, col4 = st.columns(6)
 
 col1.metric("Total Filtered Records", f"{leads_after_filter:,}", f"out of {total_leads:,}")
-col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Initial")
+col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Initial") # Note: leads_chased is leads_after_filter
 
 col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
 col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Chased")
@@ -403,7 +397,7 @@ else:
 
 # --- Chart 5: Opener Status Count (Full Width) ---
 st.subheader("Opener Status Distribution (Not Available)")
-st.info("Opener Status data is derived from the OPlan file, which is not the primary dataset source in this mode.")
+st.info("This section requires the OPlan Leads file which is not the primary dataset source in this mode.")
 
 
 st.markdown("---")
