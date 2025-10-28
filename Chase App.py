@@ -95,7 +95,6 @@ def load_and_merge_data():
             dr['Closer Name'] = dr['Closer Name'].fillna('No OPlan Match') 
         
         # --- Selecting Columns for Merge ---
-        # Note: 'Closer Name' is now in dr_cols and removed from oplan_cols
         dr_cols = ['MCN', 'Closer Name', 'Dr Chase Lead Number', 'Chasing Disposition', 'Approval date', 'Denial Date', 'Client', 'Completion Date', 'Upload Date', 'Modified Time']
         oplan_date_col = 'Sale Date' if 'Sale Date' in oplan.columns else 'Date of Sale'
         
@@ -116,7 +115,6 @@ def load_and_merge_data():
         merged_df['Chasing Disposition'] = merged_df['Chasing Disposition'].fillna('No Chase Data (OPlan Only)')
 
         # 🔴 FINAL CORRECTION: Identify Missing Dr Chase Records (Anti-Join using Unique MCNs)
-        # Note: This step uses the 'dr' DataFrame which is now enriched, but the MCN list logic is independent of the Closer Name addition.
         
         # 1. قائمة MCNs الفريدة في OPlan
         oplan_mcns = oplan['MCN'].unique()
@@ -144,7 +142,6 @@ def load_and_merge_data():
         st.error(f"Failed to load data files or process: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0, 0, pd.DataFrame() 
 
-# 🔴 تحديث: إضافة المتغير الجديد dr_missing_oplan
 merged_df, dr_df, oplan_df, total_oplan_rows, total_dr_rows, dr_missing_oplan = load_and_merge_data()
 
 # ================== 4️⃣ DASHBOARD LAYOUT & TITLE ==================
@@ -214,7 +211,12 @@ with st.sidebar:
     def clear_all_closers():
         st.session_state['selected_closers_state'] = []
 
-    if 'selected_closers_state' not in st.session_state:
+    # 🔴 FIX: Clean the session state against current options before rendering
+    if 'selected_closers_state' in st.session_state:
+        st.session_state['selected_closers_state'] = [
+            c for c in st.session_state['selected_closers_state'] if c in closer_options
+        ]
+    else:
         st.session_state['selected_closers_state'] = closer_options
         
     def update_closer_selection():
