@@ -395,10 +395,7 @@ else:
     st.warning("No data available to display Client Distribution based on current filters.")
 
 
-# --- Chart 5: Opener Status Count (Full Width) ---
-st.subheader("Opener Status Distribution (Not Available)")
-st.info("This section requires the OPlan Leads file which is not the primary dataset source in this mode.")
-
+# --- Chart 5: Opener Status Count (REMOVED) ---
 
 st.markdown("---")
 
