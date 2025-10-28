@@ -5,6 +5,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from streamlit_extras.metric_cards import style_metric_cards
 import numpy as np 
+import math 
 
 # ================== 0️⃣ CONFIGURATION ==================
 st.set_page_config(
@@ -39,10 +40,10 @@ def load_and_merge_data():
                 dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True)
 
         # --- MCN Standardization and Handling Missing MCNs ---
-        # 🟢 CRITICAL FIX: Ensure MCNs are clean before unique check
         for df_data in [dr, oplan]:
             if 'MCN' in df_data.columns:
-                df_data['MCN'] = df_data['MCN'].astype(str).str.strip().str.upper().replace({'NAN': np.nan, '': np.nan}) # upper case and strip
+                # CRITICAL FIX: Clean MCN by stripping, upper-casing, and dropping NaNs
+                df_data['MCN'] = df_data['MCN'].astype(str).str.strip().str.upper().replace({'NAN': np.nan, '': np.nan}) 
                 df_data.dropna(subset=['MCN'], inplace=True) 
 
         # --- Column Standardization ---
@@ -314,7 +315,7 @@ st.subheader("Key Performance Indicators (KPIs)")
 # Metrics derived from the MERGED (OPlan/Dr Chase) data
 total_leads = len(merged_df)
 leads_after_filter = len(filtered_df)
-# leads_chased: عدد السجلات المفلترة التي لها بيانات متابعة في Dr Chase
+# leads_chased: عدد الـ MCNs الفريدة المفلترة التي لها بيانات متابعة في Dr Chase
 leads_chased_df = filtered_df[filtered_df['Chasing Disposition'] != 'No Chase Data (OPlan Only)']
 leads_chased = leads_chased_df['MCN'].nunique()
 
@@ -328,6 +329,7 @@ if all(col in dr_df.columns for col in ['Completion Date', 'Upload Date', 'Appro
     denied_mcns = dr_df.dropna(subset=['Denial Date'])['MCN'].unique()
     
     # ثم نحسب عدد السجلات في filtered_df التي تتطابق مع هذه الـ MCNs
+    # نستخدم عدد الصفوف هنا لأنه يعكس تضخم الدمج
     filtered_completed = filtered_df[filtered_df['MCN'].isin(completed_mcns)].shape[0]
     filtered_uploaded = filtered_df[filtered_df['MCN'].isin(uploaded_mcns)].shape[0]
     filtered_approved = filtered_df[filtered_df['MCN'].isin(approved_mcns)].shape[0]
@@ -340,10 +342,12 @@ else:
 
 # Calculate percentages (based on chased leads for status KPIs)
 pct_chased = (leads_chased / leads_after_filter * 100) if leads_after_filter > 0 else 0
-pct_completed = (filtered_completed / leads_chased * 100) if leads_chased > 0 else 0
-pct_uploaded = (filtered_uploaded / leads_chased * 100) if leads_chased > 0 else 0
-pct_approved = (filtered_approved / leads_chased * 100) if leads_chased > 0 else 0
-pct_denied = (filtered_denied / leads_chased * 100) if leads_chased > 0 else 0
+# 🟢 هنا نستخدم Leads Chased (MCNs) للمقام
+pct_completed = (filtered_completed / leads_after_filter * 100) if leads_after_filter > 0 else 0
+pct_uploaded = (filtered_uploaded / leads_after_filter * 100) if leads_after_filter > 0 else 0
+pct_approved = (filtered_approved / leads_after_filter * 100) if leads_after_filter > 0 else 0
+pct_denied = (filtered_denied / leads_after_filter * 100) if leads_after_filter > 0 else 0
+
 
 # --- KPI DISPLAY (6 columns) ---
 col1, col2, col5, col6, col3, col4 = st.columns(6)
@@ -351,11 +355,11 @@ col1, col2, col5, col6, col3, col4 = st.columns(6)
 col1.metric("Total Filtered Records", f"{leads_after_filter:,}", f"out of {total_leads:,}")
 col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Filtered")
 
-col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
-col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Chased")
+col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Filtered")
+col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Filtered")
 
-col3.metric("Completed", f"{filtered_completed:,}", f"{pct_completed:.1f}% of Chased")
-col4.metric("Uploaded", f"{filtered_uploaded:,}", f"{pct_uploaded:.1f}% of Chased")
+col3.metric("Completed", f"{filtered_completed:,}", f"{pct_completed:.1f}% of Filtered")
+col4.metric("Uploaded", f"{filtered_uploaded:,}", f"{pct_uploaded:.1f}% of Filtered")
 
 
 # Apply custom styling to the metric cards
@@ -546,4 +550,3 @@ if not dr_missing_oplan.empty:
             dr_missing_oplan[available_missing_cols],
             use_container_width=True
         )
-
