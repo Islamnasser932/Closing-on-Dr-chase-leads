@@ -352,15 +352,37 @@ with col_chart_2:
 # --- Chart 3: Closer -> Disposition Treemap (FULL WIDTH) ---
 st.markdown("### Closer Performance Breakdown")
 treemap_data = filtered_df.dropna(subset=['Closer Name', 'Chasing Disposition']).copy()
-if not treemap_data.empty:
+
+# 🟢 NEW LOGIC: Calculate percentages for display in the Treemap
+treemap_data_agg = treemap_data.groupby(['Closer Name', 'Chasing Disposition']).size().reset_index(name='Count')
+closer_totals = treemap_data_agg.groupby('Closer Name')['Count'].sum().reset_index(name='Closer Total')
+treemap_data_agg = pd.merge(treemap_data_agg, closer_totals, on='Closer Name', how='left')
+treemap_data_agg['Percentage'] = (treemap_data_agg['Count'] / treemap_data_agg['Closer Total'])
+treemap_data_agg['Custom Label'] = treemap_data_agg.apply(
+    lambda row: f"{row['Count']:,}<br>({row['Percentage'] * 100:.1f}%)", axis=1
+)
+
+if not treemap_data_agg.empty:
     fig3 = px.treemap(
-        treemap_data,
+        treemap_data_agg,
         path=[px.Constant("All Closers"), 'Closer Name', 'Chasing Disposition'],
+        values='Count', # Use the pre-calculated count
         title="Closer Performance Breakdown by Chasing Disposition (Treemap)",
         template='plotly_white',
         color='Chasing Disposition',
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        color_discrete_sequence=px.colors.qualitative.Pastel,
+        
+        # 🔴 Set custom data and update traces for labels/hover
+        custom_data=['Count', 'Closer Name', 'Chasing Disposition', 'Percentage'],
     )
+    
+    fig3.update_traces(
+        # Set text based on the Custom Label we created.
+        text=treemap_data_agg['Custom Label'],
+        textinfo="text+label",
+        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Closer %: %{customdata[3]:.1%}<extra></extra>'
+    )
+    
     fig3.update_layout(
         margin = dict(t=50, l=25, r=25, b=25),
         font=dict(size=PLOTLY_FONT_SIZE + 2),
