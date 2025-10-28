@@ -204,9 +204,7 @@ with st.sidebar:
         )
         
     # 🔴 إزالة فلاتر Opener Status و Assigned To 
-    
     st.markdown("---")
-    # 🔴 تم حذف قسم "📚 Dataset Information" بالكامل
     
 
 
@@ -259,11 +257,13 @@ pct_approved = (filtered_approved / leads_chased * 100) if leads_chased > 0 else
 pct_denied = (filtered_denied / leads_chased * 100) if leads_chased > 0 else 0
 
 
-# --- KPI DISPLAY (6 columns) ---
-col1, col2, col5, col6, col3, col4 = st.columns(6)
+# --- KPI DISPLAY (5 columns) ---
+# 🔴 تم حذف col1
+col2, col5, col6, col3, col4 = st.columns(5) 
 
-col1.metric("Total Filtered Records", f"{leads_after_filter:,}", f"out of {total_leads:,}")
-col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Initial") # Note: leads_chased is leads_after_filter
+# col1.metric("Total Filtered Records", f"{leads_after_filter:,}", f"out of {total_leads:,}") # REMOVED
+
+col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Initial") 
 
 col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
 col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Chased")
