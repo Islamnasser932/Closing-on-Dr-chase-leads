@@ -377,9 +377,9 @@ if not treemap_data_agg.empty:
     )
     
     fig3.update_traces(
-        # Set text based on the Custom Label we created.
+        # 🔴 FIX: Use only 'text' to prevent Plotly from combining path labels and custom text
         text=treemap_data_agg['Custom Label'],
-        textinfo="text+label",
+        textinfo="text", # <-- FIXED HERE
         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Closer %: %{customdata[3]:.1%}<extra></extra>'
     )
     
