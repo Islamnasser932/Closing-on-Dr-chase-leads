@@ -204,13 +204,10 @@ with st.sidebar:
         )
         
     # 🔴 إزالة فلاتر Opener Status و Assigned To 
-
+    
     st.markdown("---")
-    st.subheader("📚 Dataset Information")
-    # 🔴 مؤشرات Dataset Information تعتمد الآن على ملف Dr Chase فقط
-    st.metric("Total Records (Initial)", f"{total_dr_rows:,}")
-    st.metric("Dr Chase MCNs (Unique)", f"{working_df['MCN'].nunique():,}")
-    st.metric("Total Rows in Dashboard", f"{len(working_df):,}")
+    # 🔴 تم حذف قسم "📚 Dataset Information" بالكامل
+    
 
 
 # ================== 6️⃣ APPLY FILTERS ==================
