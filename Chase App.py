@@ -47,8 +47,6 @@ def load_and_merge_data():
                 df_data.dropna(subset=['MCN'], inplace=True) 
 
         # --- Column Standardization ---
-        if 'Closer Name' in oplan.columns:
-            oplan['Closer Name'] = oplan['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
         
         if 'Chasing Disposition' in dr.columns:
             dr['Chasing Disposition'] = dr['Chasing Disposition'].fillna('N/A - Disposition')
@@ -71,15 +69,41 @@ def load_and_merge_data():
             oplan.drop(columns=['Client'], inplace=True, errors='ignore')
         if 'Products' in dr.columns:
             dr.drop(columns=['Products'], inplace=True, errors='ignore')
+            
+        # 🟢 NEW LOGIC: Enrich Dr Chase with Closer Name from OPlan
+        
+        # 1. Prepare OPlan Closer Data (Deduplicate MCNs)
+        oplan_closer_map = oplan[['MCN', 'Closer Name']].copy()
+        if 'Closer Name' in oplan_closer_map.columns:
+            oplan_closer_map['Closer Name'] = oplan_closer_map['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
+            # For MCNs with multiple sales, take the first Closer Name associated with it.
+            oplan_closer_map.drop_duplicates(subset='MCN', keep='first', inplace=True)
+            
+            # 2. Enrich Dr Chase Data with Closer Name
+            # Drop any existing/old 'Closer Name' column from Dr Chase if it exists
+            if 'Closer Name' in dr.columns:
+                dr.drop(columns=['Closer Name'], inplace=True, errors='ignore')
 
-
+            # Left Merge OPlan Closer Name into Dr Chase data
+            dr = pd.merge(
+                dr,
+                oplan_closer_map,
+                on='MCN',
+                how='left'
+            )
+            # Fill Closer Names for Dr Chase MCNs that don't match OPlan (they are truly missing)
+            dr['Closer Name'] = dr['Closer Name'].fillna('No OPlan Match') 
+        
         # --- Selecting Columns for Merge ---
-        dr_cols = ['MCN', 'Dr Chase Lead Number', 'Chasing Disposition', 'Approval date', 'Denial Date', 'Client', 'Completion Date', 'Upload Date', 'Modified Time']
+        # Note: 'Closer Name' is now in dr_cols and removed from oplan_cols
+        dr_cols = ['MCN', 'Closer Name', 'Dr Chase Lead Number', 'Chasing Disposition', 'Approval date', 'Denial Date', 'Client', 'Completion Date', 'Upload Date', 'Modified Time']
         oplan_date_col = 'Sale Date' if 'Sale Date' in oplan.columns else 'Date of Sale'
         
-        oplan_cols = ['MCN', 'O Plan Lead Number', 'Closer Name', 'Team Leader', 'Products', oplan_date_col, 'Opener Status', 'Assigned To']
+        oplan_cols = ['MCN', 'O Plan Lead Number', 'Team Leader', 'Products', oplan_date_col, 'Opener Status', 'Assigned To'] # 'Closer Name' removed
+
 
         # ================== 3️⃣ CORE MERGE OPERATION (Allowing Duplicates) ==================
+        # OPlan Left Merge Dr Chase (using the enriched Dr Chase data)
         merged_df = pd.merge(
             oplan[oplan_cols],
             dr[dr_cols],
@@ -92,6 +116,7 @@ def load_and_merge_data():
         merged_df['Chasing Disposition'] = merged_df['Chasing Disposition'].fillna('No Chase Data (OPlan Only)')
 
         # 🔴 FINAL CORRECTION: Identify Missing Dr Chase Records (Anti-Join using Unique MCNs)
+        # Note: This step uses the 'dr' DataFrame which is now enriched, but the MCN list logic is independent of the Closer Name addition.
         
         # 1. قائمة MCNs الفريدة في OPlan
         oplan_mcns = oplan['MCN'].unique()
@@ -342,7 +367,7 @@ else:
 
 # Calculate percentages (based on chased leads for status KPIs)
 pct_chased = (leads_chased / leads_after_filter * 100) if leads_after_filter > 0 else 0
-# 🟢 هنا نستخدم Leads Chased (MCNs) للمقام
+# 🟢 هنا نستخدم Total Filtered Records (Leads after filter) للمقام
 pct_completed = (filtered_completed / leads_after_filter * 100) if leads_after_filter > 0 else 0
 pct_uploaded = (filtered_uploaded / leads_after_filter * 100) if leads_after_filter > 0 else 0
 pct_approved = (filtered_approved / leads_after_filter * 100) if leads_after_filter > 0 else 0
@@ -536,6 +561,7 @@ if not dr_missing_oplan.empty:
     with st.expander("🔍 View Dr Chase Records with No OPlan Match"):
         missing_display_cols = [
             'MCN', 
+            'Closer Name', # الآن يظهر 'No OPlan Match' في هذا العمود
             'Chasing Disposition', 
             'Client', 
             'Modified Time', 
