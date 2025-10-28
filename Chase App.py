@@ -46,7 +46,8 @@ def load_and_merge_data():
 
         # --- Column Standardization ---
         if 'Closer Name' in oplan.columns:
-            oplan['Closer Name'] = oplan['Closer Name'].fillna('N/A - Closer')
+            # تنظيف Close Name لإزالة أي مسافات بادئة/لاحقة
+            oplan['Closer Name'] = oplan['Closer Name'].astype(str).str.strip().fillna('N/A - Closer')
         
         if 'Chasing Disposition' in dr.columns:
             dr['Chasing Disposition'] = dr['Chasing Disposition'].fillna('N/A - Disposition')
@@ -89,18 +90,15 @@ def load_and_merge_data():
         # Fill NaN Chasing Disposition for leads not found in Dr Chase
         merged_df['Chasing Disposition'] = merged_df['Chasing Disposition'].fillna('No Chase Data (OPlan Only)')
 
-        # 🔴 NEW LOGIC: Identify Missing Dr Chase Records (Anti-Join)
-        # 1. Merge Dr Chase with OPlan (Left Join)
-        # 2. Filter where O Plan data is NaN
+        # Anti-Join for Dr Chase missing OPlan Match
         dr_missing_oplan = pd.merge(
             dr[dr_cols],
-            oplan[['MCN', 'Closer Name']], # فقط الأعمدة الأساسية للتأكد من المطابقة
+            oplan[['MCN', 'Closer Name']],
             on='MCN',
             how='left',
             indicator=True
         ).query('_merge == "left_only"').drop(columns=['_merge']).copy()
         
-        # 🔴 يجب التعامل مع سجلات Dr Chase المكررة هنا إذا كانت موجودة، نختار آخر تعديل لكل MCN في السجلات المفقودة.
         dr_missing_oplan = dr_missing_oplan.sort_values(by='Modified Time', ascending=False).drop_duplicates(subset=['MCN'], keep='first').copy()
         
         total_oplan_rows = len(oplan)
@@ -112,7 +110,6 @@ def load_and_merge_data():
         st.error(f"Failed to load data files or process: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), 0, 0, pd.DataFrame() 
 
-# 🔴 تحديث: إضافة المتغير الجديد dr_missing_oplan
 merged_df, dr_df, oplan_df, total_oplan_rows, total_dr_rows, dr_missing_oplan = load_and_merge_data()
 
 # ================== 4️⃣ DASHBOARD LAYOUT & TITLE ==================
@@ -162,29 +159,34 @@ with st.sidebar:
     st.header("⚙️ Data Filters")
     
     # 1. Closer Name Filter
-    closer_options = sorted(merged_df['Closer Name'].unique())
+    # 🔴 التأكد من أن القائمة فريدة ونظيفة
+    closer_options = sorted(merged_df['Closer Name'].astype(str).unique())
     
     target_closers = ['Aila Patrick', 'Lisa Hanz', 'Athina Henderson', 'Jordan Williams', 'Lauren Bailey', 'Linda Anderson', 'Maeve White', 'Raven Miller', 'Summer Hudson', 'Marcelle David', 'Lily Williams']
     
+    # قائمة Closers الافتراضية المفلترة للتأكد من وجودها
     default_closers = [c for c in target_closers if c in closer_options]
     if not default_closers and closer_options:
         default_closers = closer_options[:5] 
         
     
     # --- Filter Action Buttons (Closer) ---
-    col_closer_btn1, col_closer_btn2 = st.columns(2)
     
+    # Function to select the default closers
     def select_default_closers():
         st.session_state['selected_closers_state'] = default_closers
         
+    # Function to select ALL closers
     def select_all_closers():
         st.session_state['selected_closers_state'] = closer_options
         
+    # Function to clear all closers
     def clear_all_closers():
         st.session_state['selected_closers_state'] = []
 
+    # 🔴 FIX: Initialize session state with ALL CLOSERS إذا لم تكن محددة بعد (لتجنب الخطأ عند التشغيل الأول)
     if 'selected_closers_state' not in st.session_state:
-        st.session_state['selected_closers_state'] = default_closers
+        st.session_state['selected_closers_state'] = closer_options # Select ALL on startup
         
     def update_closer_selection():
         pass
@@ -206,7 +208,8 @@ with st.sidebar:
     selected_closers_sidebar = st.multiselect(
         "🧑‍💼 Closer Name",
         options=closer_options,
-        default=st.session_state['selected_closers_state'],
+        # 🔴 FIX: استخدام st.session_state لـ default
+        default=st.session_state['selected_closers_state'], 
         key='selected_closers_state',
         on_change=update_closer_selection
     )
@@ -524,7 +527,6 @@ if not dr_missing_oplan.empty:
     )
     
     with st.expander("🔍 View Dr Chase Records with No OPlan Match"):
-        # الأعمدة الأكثر أهمية لتحديد الفجوة
         missing_display_cols = [
             'MCN', 
             'Chasing Disposition', 
@@ -535,7 +537,6 @@ if not dr_missing_oplan.empty:
             'Denial Date'
         ]
         
-        # تصفية الأعمدة المتوفرة للعرض
         available_missing_cols = [col for col in missing_display_cols if col in dr_missing_oplan.columns]
         
         st.dataframe(
