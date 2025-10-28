@@ -83,7 +83,7 @@ def load_and_enrich_dr_chase_data():
 working_df, total_dr_rows = load_and_enrich_dr_chase_data()
 
 # ================== 4️⃣ DASHBOARD LAYOUT & TITLE ==================
-st.title("📊 Dr Chase Leads Analysis (Standalone)")
+st.title("📊 Closing Analysis on Dr chase Leads")
 st.markdown("---")
 
 # Check if data loaded successfully
@@ -411,3 +411,4 @@ else:
     st.info("The filtered data table is empty.")
 
 # ================== 🔟 MISSING DATA WARNING (REMOVED) ==================
+
