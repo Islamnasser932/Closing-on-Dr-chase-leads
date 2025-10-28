@@ -260,8 +260,8 @@ pct_denied = (filtered_denied / leads_chased * 100) if leads_chased > 0 else 0
 # --- KPI DISPLAY (5 columns) ---
 col2, col5, col6, col3, col4 = st.columns(5) 
 
-# 🔴 Records Chased (Removed percentage in delta)
-col2.metric("Records Chased", f"{leads_chased:,}", "") 
+# 🔴 FIX: وضع دلتا (Total Leads) لتصحيح شكل البطاقة
+col2.metric("Records Chased", f"{leads_chased:,}", f"Total: {total_leads:,}") 
 
 col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
 col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Chased")
