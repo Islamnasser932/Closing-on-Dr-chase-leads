@@ -39,9 +39,10 @@ def load_and_merge_data():
                 dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True)
 
         # --- MCN Standardization and Handling Missing MCNs ---
+        # 🟢 CRITICAL FIX: Ensure MCNs are clean before unique check
         for df_data in [dr, oplan]:
             if 'MCN' in df_data.columns:
-                df_data['MCN'] = df_data['MCN'].astype(str).str.strip().replace({'nan': np.nan, '': np.nan})
+                df_data['MCN'] = df_data['MCN'].astype(str).str.strip().str.upper().replace({'NAN': np.nan, '': np.nan}) # upper case and strip
                 df_data.dropna(subset=['MCN'], inplace=True) 
 
         # --- Column Standardization ---
@@ -89,18 +90,18 @@ def load_and_merge_data():
         # Fill NaN Chasing Disposition for leads not found in Dr Chase
         merged_df['Chasing Disposition'] = merged_df['Chasing Disposition'].fillna('No Chase Data (OPlan Only)')
 
-        # 🔴 CORRECTION: Identify Missing Dr Chase Records (Anti-Join using Unique MCNs)
+        # 🔴 FINAL CORRECTION: Identify Missing Dr Chase Records (Anti-Join using Unique MCNs)
         
-        # 1. قائمة MCNs الفريدة التي لديها سجلات في OPlan
+        # 1. قائمة MCNs الفريدة في OPlan
         oplan_mcns = oplan['MCN'].unique()
         
-        # 2. قائمة MCNs الفريدة التي لديها سجلات في Dr Chase
+        # 2. قائمة MCNs الفريدة في Dr Chase
         dr_mcns = dr['MCN'].unique()
         
         # 3. MCNs المفقودة: MCNs موجودة في Dr Chase وليست موجودة في OPlan
         missing_mcns_list = np.setdiff1d(dr_mcns, oplan_mcns)
         
-        # 4. بناء DataFrame المفقودين من dr_df الأصلي، ثم اختيار آخر سجل معدل لكل MCN مفقود
+        # 4. بناء DataFrame المفقودين من dr_df الأصلي
         dr_missing_oplan = dr[dr['MCN'].isin(missing_mcns_list)].copy()
         
         # 5. تنظيف التكرارات في القائمة المفقودة (لكل MCN مفقود، نحتفظ بآخر حالة)
