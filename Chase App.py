@@ -263,7 +263,7 @@ col2, col5, col6, col3, col4 = st.columns(5)
 
 # col1.metric("Total Filtered Records", f"{leads_after_filter:,}", f"out of {total_leads:,}") # REMOVED
 
-col2.metric("Records Chased", f"{leads_chased:,}", f"{pct_chased:.1f}% of Initial") 
+col2.metric("Records Chased", f"{leads_chased:,}"
 
 col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
 col6.metric("Denials", f"{filtered_denied:,}", f"{pct_denied:.1f}% of Chased")
@@ -410,3 +410,4 @@ else:
     st.info("The filtered data table is empty.")
 
 # ================== 🔟 MISSING DATA WARNING (REMOVED) ==================
+
