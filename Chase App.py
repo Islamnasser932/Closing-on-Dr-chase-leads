@@ -288,39 +288,96 @@ PLOTLY_FONT_SIZE = 14
 
 st.subheader("Distribution Analysis")
 
-# 🔴 تحديث: تخطيط عمودين للمخطط وملخص النص (الذي كان مفقودًا)
-col_chart_1, col_chart_2 = st.columns([3, 2]) 
+# ---------------------------------------------------------------------------------------
+# 🔴 ROW 1: Closer Name Pie Chart + Summary Text
+# ---------------------------------------------------------------------------------------
+col_closer_chart, col_closer_summary = st.columns([1, 1])
 
-# --- LEFT COLUMN (Chart 1: Total Leads by Closer Name - Simple Bar) ---
-with col_chart_1:
-    closer_count = filtered_df['Closer Name'].value_counts().reset_index()
-    closer_count.columns = ["Closer Name", "Count"]
+# --- Data Prep for Closer Charts/Text ---
+closer_count = filtered_df['Closer Name'].value_counts().reset_index()
+closer_count.columns = ["Closer Name", "Count"]
+total_closer_count = closer_count['Count'].sum()
+closer_count['Percentage'] = (closer_count['Count'] / total_closer_count * 100).round(1)
 
+# --- LEFT COLUMN (Closer Pie Chart) ---
+with col_closer_chart:
     if not closer_count.empty:
-        # 🔴 Chart 1: Reverted to simple bar chart
-        fig1 = px.bar(
-            closer_count, 
-            x="Closer Name", 
-            y="Count", 
-            title="Total Leads by Closer Name", 
-            text_auto=True,
+        # 🟢 Pie Chart Logic (NEW)
+        fig_pie = px.pie(
+            closer_count,
+            names="Closer Name",
+            values="Count",
+            title="Total Leads by Closer Name (Pie Chart)",
             template='plotly_white',
-            color='Closer Name',
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
-        fig1.update_layout(
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+        fig_pie.update_layout(
             font=dict(size=PLOTLY_FONT_SIZE),
             title_font=dict(size=PLOTLY_FONT_SIZE + 4)
         )
-        fig1.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
-        fig1.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig_pie, use_container_width=True)
     else:
-        st.info("No data available to display Closer Name Count based on current filters.")
+        st.info("No data available to display Closer Pie Chart based on current filters.")
 
-# --- RIGHT COLUMN (Text Summary of Disposition) ---
-with col_chart_2:
-    st.markdown("### 📊 Chasing Disposition Summary")
+# --- RIGHT COLUMN (Closer Pie Chart Context/Info) ---
+with col_closer_summary:
+    st.markdown("### ℹ️ Closer Performance Overview")
+    if not closer_count.empty:
+        top_closer = closer_count.iloc[0]['Closer Name']
+        top_count = closer_count.iloc[0]['Count']
+        top_pct = closer_count.iloc[0]['Percentage']
+        
+        st.info(f"""
+        **Total Closers:** {closer_count.shape[0]:,} active closers.
+        
+        **Top Performer:** **{top_closer}**
+        
+        * **Leads Handled:** {top_count:,} records.
+        * **Market Share:** {top_pct:.1f}% of all filtered leads.
+        
+        (The chart shows the distribution of all filtered leads across the selected closers.)
+        """)
+    else:
+        st.info("Select closers to view the distribution summary.")
+
+# ---------------------------------------------------------------------------------------
+# 🔴 ROW 2: Disposition Bar Chart + Disposition Summary Table (Side-by-Side)
+# ---------------------------------------------------------------------------------------
+st.markdown("---")
+st.markdown("### Status Distribution Breakdown")
+col_dispo_chart, col_dispo_table = st.columns([3, 2])
+
+# --- LEFT COLUMN (Chart 2: Chasing Disposition Count - Bar Chart) ---
+with col_dispo_chart:
+    disposition_count = filtered_df['Chasing Disposition'].value_counts().reset_index()
+    disposition_count.columns = ["Chasing Disposition", "Count"]
+
+    if not disposition_count.empty:
+        fig2 = px.bar(
+            disposition_count, 
+            x="Chasing Disposition", 
+            y="Count", 
+            title="Distribution of Chasing Dispositions (Count)", 
+            text_auto=True,
+            template='plotly_white',
+            color='Chasing Disposition',
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        fig2.update_layout(
+            font=dict(size=PLOTLY_FONT_SIZE),
+            title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+        )
+        fig2.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+        fig2.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("No data available to display Chasing Disposition Count based on current filters.")
+
+
+# --- RIGHT COLUMN (Disposition Summary Table - Restored) ---
+with col_dispo_table:
+    st.markdown("### 📊 Chasing Disposition Summary Table")
     
     disposition_summary = filtered_df['Chasing Disposition'].value_counts().reset_index(name='Count')
     disposition_summary.columns = ['Disposition', 'Count']
@@ -349,32 +406,10 @@ with col_chart_2:
         }
     )
 
-# 🟢 Chart 2: Distribution of Chasing Dispositions (Restored as a Bar Chart - Full Width)
-disposition_count = filtered_df['Chasing Disposition'].value_counts().reset_index()
-disposition_count.columns = ["Chasing Disposition", "Count"]
 
-if not disposition_count.empty:
-    fig2 = px.bar(
-        disposition_count, 
-        x="Chasing Disposition", 
-        y="Count", 
-        title="Distribution of Chasing Dispositions (Count)", 
-        text_auto=True,
-        template='plotly_white',
-        color='Chasing Disposition',
-        color_discrete_sequence=px.colors.qualitative.Pastel # Using Pastel for consistency
-    )
-    fig2.update_layout(
-        font=dict(size=PLOTLY_FONT_SIZE),
-        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
-    )
-    fig2.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
-    fig2.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
-    st.plotly_chart(fig2, use_container_width=True)
-else:
-    st.info("No data available to display Chasing Disposition Count based on current filters.")
-
-
+# ---------------------------------------------------------------------------------------
+# 🔴 REMAINING FULL-WIDTH CHARTS (Rows 3 & 4)
+# ---------------------------------------------------------------------------------------
 
 # --- Chart 3: Closer -> Disposition Treemap (FULL WIDTH) ---
 st.markdown("### Closer Performance Breakdown")
