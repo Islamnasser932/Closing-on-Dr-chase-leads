@@ -289,9 +289,9 @@ PLOTLY_FONT_SIZE = 14
 st.subheader("Distribution Analysis")
 
 # ---------------------------------------------------------------------------------------
-# 🔴 ROW 1: Closer Name Pie Chart + Summary Text
+# 🔴 ROW 1: Closer Name Bar Chart + Closer Summary Table (Side-by-Side)
 # ---------------------------------------------------------------------------------------
-col_closer_chart, col_closer_summary = st.columns([1, 1])
+col_closer_chart, col_closer_summary = st.columns([3, 2]) 
 
 # --- Data Prep for Closer Charts/Text ---
 closer_count = filtered_df['Closer Name'].value_counts().reset_index()
@@ -299,45 +299,55 @@ closer_count.columns = ["Closer Name", "Count"]
 total_closer_count = closer_count['Count'].sum()
 closer_count['Percentage'] = (closer_count['Count'] / total_closer_count * 100).round(1)
 
-# --- LEFT COLUMN (Closer Pie Chart) ---
+# --- LEFT COLUMN (Chart 1: Total Leads by Closer Name - Bar Chart) ---
 with col_closer_chart:
     if not closer_count.empty:
-        # 🟢 Pie Chart Logic (NEW)
-        fig_pie = px.pie(
-            closer_count,
-            names="Closer Name",
-            values="Count",
-            title="Total Leads by Closer Name (Pie Chart)",
+        # 🟢 Chart 1: Bar Chart (Reverted from Pie Chart)
+        fig1 = px.bar(
+            closer_count, 
+            x="Closer Name", 
+            y="Count", 
+            title="Total Leads by Closer Name", 
+            text_auto=True,
             template='plotly_white',
+            color='Closer Name',
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
-        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-        fig_pie.update_layout(
+        fig1.update_layout(
             font=dict(size=PLOTLY_FONT_SIZE),
             title_font=dict(size=PLOTLY_FONT_SIZE + 4)
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        fig1.update_xaxes(categoryorder='total descending', tickfont=dict(size=PLOTLY_FONT_SIZE))
+        fig1.update_yaxes(tickfont=dict(size=PLOTLY_FONT_SIZE))
+        st.plotly_chart(fig1, use_container_width=True)
     else:
-        st.info("No data available to display Closer Pie Chart based on current filters.")
+        st.info("No data available to display Closer Name Count based on current filters.")
 
-# --- RIGHT COLUMN (Closer Pie Chart Context/Info) ---
+# --- RIGHT COLUMN (Closer Info Summary Table) ---
 with col_closer_summary:
     st.markdown("### ℹ️ Closer Performance Overview")
+    
+    # 🟢 عرض جدول أداء كل Closer بالضبط كما طلب المستخدم
     if not closer_count.empty:
-        top_closer = closer_count.iloc[0]['Closer Name']
-        top_count = closer_count.iloc[0]['Count']
-        top_pct = closer_count.iloc[0]['Percentage']
-        
-        st.info(f"""
-        **Total Closers:** {closer_count.shape[0]:,} active closers.
-        
-        **Top Performer:** **{top_closer}**
-        
-        * **Leads Handled:** {top_count:,} records.
-        * **Market Share:** {top_pct:.1f}% of all filtered leads.
-        
-        (The chart shows the distribution of all filtered leads across the selected closers.)
-        """)
+        st.dataframe(
+            closer_count,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Closer Name": "Closer",
+                "Count": st.column_config.ProgressColumn(
+                    "Count",
+                    help="Total records for this closer",
+                    format="%d",
+                    min_value=0,
+                    max_value=total_closer_count,
+                ),
+                "Percentage": st.column_config.NumberColumn(
+                    "Share (%)",
+                    format="%.1f%%",
+                )
+            }
+        )
     else:
         st.info("Select closers to view the distribution summary.")
 
@@ -375,7 +385,7 @@ with col_dispo_chart:
         st.info("No data available to display Chasing Disposition Count based on current filters.")
 
 
-# --- RIGHT COLUMN (Disposition Summary Table - Restored) ---
+# --- RIGHT COLUMN (Disposition Summary Table - Side-by-Side) ---
 with col_dispo_table:
     st.markdown("### 📊 Chasing Disposition Summary Table")
     
@@ -406,10 +416,6 @@ with col_dispo_table:
         }
     )
 
-
-# ---------------------------------------------------------------------------------------
-# 🔴 REMAINING FULL-WIDTH CHARTS (Rows 3 & 4)
-# ---------------------------------------------------------------------------------------
 
 # --- Chart 3: Closer -> Disposition Treemap (FULL WIDTH) ---
 st.markdown("### Closer Performance Breakdown")
