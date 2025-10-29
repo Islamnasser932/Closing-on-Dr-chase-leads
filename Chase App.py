@@ -292,11 +292,15 @@ st.subheader("Distribution Analysis")
 # 🔴 تحديث: تخطيط عمودين للمخطط وملخص النص
 col_closer_chart, col_closer_summary = st.columns([3, 2]) 
 
+# --- Data Prep for Closer Charts/Text ---
+closer_count = filtered_df['Closer Name'].value_counts().reset_index()
+closer_count.columns = ["Closer Name", "Count"]
+total_closer_count = int(closer_count['Count'].sum()) # 🔴 FIX 2: Define total_closer_count here
+closer_count['Percentage'] = (closer_count['Count'] / total_closer_count * 100).round(1)
+
+
 # --- LEFT COLUMN (Chart 1: Total Leads by Closer Name - Simple Bar) ---
 with col_closer_chart:
-    closer_count = filtered_df['Closer Name'].value_counts().reset_index()
-    closer_count.columns = ["Closer Name", "Count"]
-
     if not closer_count.empty:
         # 🔴 Chart 1: Reverted to simple bar chart
         fig1 = px.bar(
@@ -336,7 +340,7 @@ with col_closer_summary:
                     help="Total records for this closer",
                     format="%d",
                     min_value=0,
-                    max_value=total_closer_count,
+                    max_value=total_closer_count, # 🔴 FIX: Now defined as int
                 ),
                 "Percentage": st.column_config.NumberColumn(
                     "Share (%)",
