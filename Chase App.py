@@ -235,19 +235,20 @@ total_filtered_leads = len(filtered_df)
 st.subheader("Key Performance Indicators (KPIs)")
 
 # Metrics derived only from the DR CHASE data (Enriched)
-total_leads = len(working_df)
+total_leads = int(len(working_df)) # Cast to int
 leads_after_filter = len(filtered_df)
 # Records Chased: Since this is Dr Chase data, all filtered records are the "Chased Records"
-leads_chased = leads_after_filter
+leads_chased = int(leads_after_filter) # Cast to int
 
 # --- KPI CALCULATION ---
 # KPIs based on non-null values in the DR CHASE file
 if all(col in filtered_df.columns for col in ['Completion Date', 'Approval date', 'Denial Date', 'Upload Date']):
     
-    filtered_completed = filtered_df['Completion Date'].notna().sum()
-    filtered_approved = filtered_df['Approval date'].notna().sum()
-    filtered_denied = filtered_df['Denial Date'].notna().sum()
-    filtered_uploaded = filtered_df['Upload Date'].notna().sum()
+    # 🔴 FIX: Cast results to int
+    filtered_completed = int(filtered_df['Completion Date'].notna().sum())
+    filtered_approved = int(filtered_df['Approval date'].notna().sum())
+    filtered_denied = int(filtered_df['Denial Date'].notna().sum())
+    filtered_uploaded = int(filtered_df['Upload Date'].notna().sum())
 else:
     filtered_completed = filtered_approved = filtered_denied = filtered_uploaded = 0
 
@@ -262,7 +263,7 @@ pct_denied = (filtered_denied / leads_chased * 100) if leads_chased > 0 else 0
 # --- KPI DISPLAY (5 columns) ---
 col2, col5, col6, col3, col4 = st.columns(5) 
 
-# 🔴 FIX: وضع دلتا (Total Leads) لتصحيح شكل البطاقة
+# 🔴 FIX: وضع دلتا (Total Leads) لتصحيح شكل البطاقة (using native Python int now)
 col2.metric("Records Chased", f"{leads_chased:,}", f"Total: {total_leads:,}") 
 
 col5.metric("Approvals", f"{filtered_approved:,}", f"{pct_approved:.1f}% of Chased")
@@ -288,21 +289,16 @@ PLOTLY_FONT_SIZE = 14
 
 st.subheader("Distribution Analysis")
 
-# ---------------------------------------------------------------------------------------
-# 🔴 ROW 1: Closer Name Bar Chart + Closer Summary Table (Side-by-Side)
-# ---------------------------------------------------------------------------------------
+# 🔴 تحديث: تخطيط عمودين للمخطط وملخص النص
 col_closer_chart, col_closer_summary = st.columns([3, 2]) 
 
-# --- Data Prep for Closer Charts/Text ---
-closer_count = filtered_df['Closer Name'].value_counts().reset_index()
-closer_count.columns = ["Closer Name", "Count"]
-total_closer_count = closer_count['Count'].sum()
-closer_count['Percentage'] = (closer_count['Count'] / total_closer_count * 100).round(1)
-
-# --- LEFT COLUMN (Chart 1: Total Leads by Closer Name - Bar Chart) ---
+# --- LEFT COLUMN (Chart 1: Total Leads by Closer Name - Simple Bar) ---
 with col_closer_chart:
+    closer_count = filtered_df['Closer Name'].value_counts().reset_index()
+    closer_count.columns = ["Closer Name", "Count"]
+
     if not closer_count.empty:
-        # 🟢 Chart 1: Bar Chart (Reverted from Pie Chart)
+        # 🔴 Chart 1: Reverted to simple bar chart
         fig1 = px.bar(
             closer_count, 
             x="Closer Name", 
