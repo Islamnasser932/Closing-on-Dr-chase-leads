@@ -598,7 +598,7 @@ else:
             dispo_summary_table = specialty_dispo_summary.groupby('Chasing Disposition')['Count'].sum().reset_index(name='Total Count')
             
             # Cast columns to native Python types for display
-            total_summary_count = dispo_summary_table['Total Count'].sum()
+            total_summary_count = int(dispo_summary_table['Total Count'].sum())
             dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_summary_count * 100).round(1).astype(float)
             dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
 
