@@ -534,7 +534,7 @@ else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
 
-# --- Chart 5: Dr Specialty vs Disposition (Modified to Treemap) ---
+# --- Chart 5: Dr Specialty vs Disposition (Modified to PIE + Summary) ---
 st.markdown("---")
 st.subheader("🏥 Dr Specialty Performance Analysis")
 
@@ -561,31 +561,31 @@ else:
         ].copy()
         chart_title_context = closer_filter_5
         
-    # 2. Aggregate Data (Specialty vs. Disposition)
-    specialty_dispo_summary = specialty_filtered_df.groupby(
-        ['Dr Specialty', 'Chasing Disposition']
-    ).size().reset_index(name='Count')
+    # 2. Aggregate Data (Specialty Count for Pie Chart)
+    specialty_pie_data = specialty_filtered_df['Dr Specialty'].value_counts().reset_index(name='Count')
+    specialty_pie_data.columns = ['Dr Specialty', 'Count']
+    total_specialty_count = specialty_pie_data['Count'].sum()
     
-    if not specialty_dispo_summary.empty:
-        # 🟢 3. Treemap (Dr Specialty -> Chasing Disposition)
-        fig_treemap_specialty = px.treemap(
-            specialty_dispo_summary,
-            path=[px.Constant(chart_title_context), 'Dr Specialty', 'Chasing Disposition'],
+    if not specialty_pie_data.empty:
+        # 🟢 3. Pie Chart (Distribution of Dr Specialty)
+        fig_pie = px.pie(
+            specialty_pie_data,
+            names='Dr Specialty',
             values='Count',
-            title=f"Dr Specialty & Disposition Breakdown for {chart_title_context}",
+            title=f"Dr Specialty Distribution for {chart_title_context}",
             template='plotly_white',
-            color='Dr Specialty',
-            color_discrete_sequence=px.colors.qualitative.Set2
+            color_discrete_sequence=px.colors.qualitative.Set1
         )
-        
-        fig_treemap_specialty.update_layout(
-            margin = dict(t=50, l=25, r=25, b=25),
-            font=dict(size=PLOTLY_FONT_SIZE + 2),
+        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+        fig_pie.update_layout(
+            font=dict(size=PLOTLY_FONT_SIZE),
             title_font=dict(size=PLOTLY_FONT_SIZE + 4)
         )
-        
-        st.plotly_chart(fig_treemap_specialty, use_container_width=True)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
+        # 🟢 4. Summary Table (Top Dispositions in that context)
+        # 🔴 (تم حذف هذا الجزء بناءً على طلبك)
+        
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
@@ -673,4 +673,35 @@ else:
                 title=f"Activity Trend: {time_col} ({freq} Count)",
                 template='plotly_white',
                 labels={'Count': 'Number of Records', 'Period': 'Time Period'},
-                color_discrete_sequence=px.colors.qualitativ
+                color_discrete_sequence=px.colors.qualitative.Bold
+            )
+            
+            # Update layout for better time axis visibility
+            fig_ts.update_layout(
+                xaxis_title=time_col,
+                yaxis_title="Record Count",
+                hovermode="x unified",
+                font=dict(size=PLOTLY_FONT_SIZE)
+            )
+            
+            st.plotly_chart(fig_ts, use_container_width=True)
+        else:
+            st.info("No data available after grouping and time aggregation.")
+
+
+st.markdown("---")
+
+# ================== 9️⃣ DATA TABLE PREVIEW ==================
+st.subheader("📋 Filtered Dr Chase Data Preview")
+data_preview_cols = ['MCN', 'Closer Name', 'Chasing Disposition', 'Client', 'Dr Chase Lead Number', 
+                     'Approval date', 'Denial Date', 'Completion Date', 'Assigned date', 'Dr Specialty']
+
+# Filter available columns for display
+available_preview_cols = [col for col in data_preview_cols if col in filtered_df.columns]
+
+if not filtered_df.empty:
+    st.dataframe(filtered_df[available_preview_cols], use_container_width=True)
+else:
+    st.info("The filtered data table is empty.")
+
+# ================== 🔟 MISSING DATA WARNING (REMOVED) ==================
