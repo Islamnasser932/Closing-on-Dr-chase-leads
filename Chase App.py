@@ -633,33 +633,57 @@ if not comparison_df.empty:
     if 'Pending Shipping' not in comparison_pivot.columns:
         comparison_pivot['Pending Shipping'] = 0
         
-    # 6. Calculate Total and sort
-    comparison_pivot['Total (Denied + Pending)'] = comparison_pivot['Dr Denied'] + comparison_pivot['Pending Shipping']
-    comparison_pivot = comparison_pivot.sort_values(by='Total (Denied + Pending)', ascending=False)
+    # 6. Get Total Leads per Closer
+    closer_total_leads = filtered_df['Closer Name'].value_counts().reset_index()
+    closer_total_leads.columns = ['Closer Name', 'Total Leads']
     
-    # 7. Cast all columns to int for JSON serialization
+    # 7. Merge Total Leads into the pivot table
+    comparison_pivot = pd.merge(
+        comparison_pivot.reset_index(),
+        closer_total_leads,
+        on='Closer Name',
+        how='left'
+    )
+    
+    # 8. Calculate Percentages (NEW)
+    comparison_pivot['Percentage Denied'] = (comparison_pivot['Dr Denied'] / comparison_pivot['Total Leads'] * 100).round(1)
+    comparison_pivot['Percentage Pending'] = (comparison_pivot['Pending Shipping'] / comparison_pivot['Total Leads'] * 100).round(1)
+    
+    # 9. Sort by Percentage Denied
+    comparison_pivot = comparison_pivot.sort_values(by='Percentage Denied', ascending=False)
+    
+    # 10. Cast all columns to native types for JSON serialization
     comparison_pivot['Dr Denied'] = comparison_pivot['Dr Denied'].astype(int)
     comparison_pivot['Pending Shipping'] = comparison_pivot['Pending Shipping'].astype(int)
-    comparison_pivot['Total (Denied + Pending)'] = comparison_pivot['Total (Denied + Pending)'].astype(int)
+    comparison_pivot['Total Leads'] = comparison_pivot['Total Leads'].astype(int)
+    comparison_pivot['Percentage Denied'] = comparison_pivot['Percentage Denied'].astype(float)
+    comparison_pivot['Percentage Pending'] = comparison_pivot['Percentage Pending'].astype(float)
 
-    # 8. Display the table
+    # 11. Display the table
     st.dataframe(
-        comparison_pivot,
+        comparison_pivot[['Closer Name', 'Total Leads', 'Dr Denied', 'Percentage Denied', 'Pending Shipping', 'Percentage Pending']],
         use_container_width=True,
+        hide_index=True,
         column_config={
             "Dr Denied": st.column_config.NumberColumn(
-                "Dr Denied Count",
+                "Dr Denied (Count)",
                 format="%d"
             ),
             "Pending Shipping": st.column_config.NumberColumn(
-                "Pending Shipping Count",
+                "Pending Shipping (Count)",
                 format="%d"
             ),
-            "Total (Denied + Pending)": st.column_config.ProgressColumn(
-                "Total (Denied + Pending)",
-                format="%d",
-                min_value=0,
-                max_value=int(comparison_pivot['Total (Denied + Pending)'].max())
+            "Total Leads": st.column_config.NumberColumn(
+                "Total Leads (Closer)",
+                format="%d"
+            ),
+            "Percentage Denied": st.column_config.NumberColumn(
+                "Denied %",
+                format="%.1f%%"
+            ),
+            "Percentage Pending": st.column_config.NumberColumn(
+                "Pending %",
+                format="%.1f%%"
             )
         }
     )
