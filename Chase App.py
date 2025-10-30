@@ -544,7 +544,7 @@ closer_list_all = sorted(filtered_df['Closer Name'].unique())
 if not closer_list_all:
     st.info("No data available for this breakdown.")
 else:
-    # 🔴 1. Filter setup (using All Closers by default)
+    # 🔴 1. Filtering Logic setup (using All Closers by default)
     closer_options_5 = ["All Closers"] + closer_list_all
     closer_filter_5 = st.selectbox(
         "Select Closer for Specialty Analysis:", 
