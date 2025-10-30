@@ -489,22 +489,31 @@ else:
         closer_dispo_ranking = closer_data['Chasing Disposition'].value_counts().reset_index()
         closer_dispo_ranking.columns = ['Disposition', 'Count']
         
-        fig_ranking = px.bar(
+        # 🔴 NEW LOGIC: Calculate Percentage Share for the selected Closer
+        total_closer_records_ranking = closer_dispo_ranking['Count'].sum()
+        closer_dispo_ranking['Percentage'] = (closer_dispo_ranking['Count'] / total_closer_records_ranking * 100).round(1)
+
+
+        # 🟢 Display as Streamlit DataFrame (Table)
+        st.dataframe(
             closer_dispo_ranking,
-            x='Count',
-            y='Disposition',
-            orientation='h', # Horizontal Bar Chart for easy ranking
-            title=f"Disposition Ranking for {selected_closer}",
-            text_auto=True,
-            template='plotly_white',
-            color='Disposition',
-            color_discrete_sequence=px.colors.qualitative.Bold
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Disposition": "Chasing Disposition",
+                "Count": st.column_config.ProgressColumn(
+                    "Count",
+                    format="%d",
+                    min_value=0,
+                    max_value=total_closer_records_ranking,
+                ),
+                "Percentage": st.column_config.NumberColumn(
+                    "Share (%)",
+                    format="%.1f%%",
+                )
+            }
         )
-        fig_ranking.update_layout(
-            yaxis={'categoryorder':'total ascending'}, # Sort lowest to highest on Y-axis
-            font=dict(size=PLOTLY_FONT_SIZE)
-        )
-        st.plotly_chart(fig_ranking, use_container_width=True)
+        st.info(f"Total filtered records for {selected_closer}: {total_closer_records_ranking:,}")
     else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
