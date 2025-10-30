@@ -546,7 +546,7 @@ else:
     # 🔴 Setting up two columns for Pie Chart and Summary
     col_chart_5, col_summary_5 = st.columns([1, 1])
 
-    # 🔴 Filtering Logic
+    # 🔴 Filtering Logic setup (using All Closers by default)
     closer_options_5 = ["All Closers"] + closer_list_all
     closer_filter_5 = col_chart_5.selectbox(
         "Select Closer for Specialty Analysis:", 
@@ -591,12 +591,15 @@ else:
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
-        # 🟢 RIGHT COLUMN: Summary Table (Top 5 Dispositions in that context)
+        # 🟢 RIGHT COLUMN: Summary Table (Top Dispositions in that context)
         with col_summary_5:
             st.markdown("### Disposition Summary by Specialty")
             
             dispo_summary_table = specialty_dispo_summary.groupby('Chasing Disposition')['Count'].sum().reset_index(name='Total Count')
-            dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_specialty_count * 100).round(1).astype(float)
+            
+            # Cast columns to native Python types for display
+            total_summary_count = dispo_summary_table['Total Count'].sum()
+            dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_summary_count * 100).round(1).astype(float)
             dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
 
             # Sort and display top dispositions
@@ -610,7 +613,7 @@ else:
                         "Count",
                         format="%d",
                         min_value=0,
-                        max_value=total_specialty_count,
+                        max_value=total_summary_count,
                     ),
                     "Percentage": st.column_config.NumberColumn(
                         "Overall %",
@@ -618,7 +621,7 @@ else:
                     )
                 }
             )
-            st.info(f"Total leads analyzed: {total_specialty_count:,}")
+            st.info(f"Total leads analyzed: {total_summary_count:,}")
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
