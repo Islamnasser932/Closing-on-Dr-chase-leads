@@ -25,7 +25,7 @@ def load_and_enrich_dr_chase_data():
         # Load O_Plan_Leads (for Closer Name enrichment ONLY)
         oplan = pd.read_csv("O_Plan_Leads.csv", encoding='latin-1', low_memory=False)
 
-        # ================== 2️⃣ DATA CLEANing & ENRICHMENT ==================
+        # ================== 2️⃣ DATA CLEANING & ENRICHMENT ==================
         
         # --- Date & Time Conversion (for DR CHASE) ---
         dr['Modified Time'] = pd.to_datetime(dr['Modified Time'], errors='coerce', dayfirst=True)
