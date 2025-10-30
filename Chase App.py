@@ -490,7 +490,7 @@ else:
     selected_closer = st.selectbox(
         "Select Closer to Analyze Disposition Ranking:", 
         options=closer_list, 
-        index=closer_list.index(default_rank_selection) if default_rank_selection else 0,
+        index=closer_list.index(default_rank_selection) if default_rank_selection and default_rank_selection in closer_list else 0,
         key="closer_ranking_select"
     )
     
@@ -543,43 +543,48 @@ closer_list_all = sorted(filtered_df['Closer Name'].unique())
 if not closer_list_all:
     st.info("No data available for this breakdown.")
 else:
-    closer_filter_5 = st.multiselect(
-        "Select Closer(s) to Analyze Specialty Breakdown:", 
-        options=closer_list_all, 
-        default=closer_list_all, # Select all by default
+    # 🔴 FIX 1: Add "All Closers" option and change to selectbox
+    closer_options_5 = ["All Closers"] + closer_list_all
+    closer_filter_5 = st.selectbox(
+        "Select Closer to Analyze Specialty Breakdown:", 
+        options=closer_options_5, 
         key="specialty_closer_filter"
     )
     
-    # Filter data based on selected closer
-    specialty_filtered_df = filtered_df[
-        filtered_df['Closer Name'].isin(closer_filter_5)
-    ].copy()
+    # 🔴 FIX 2: Dynamic Filtering Logic
+    if closer_filter_5 == "All Closers":
+        specialty_filtered_df = filtered_df.copy()
+        chart_title_context = "All Selected Closers"
+    else:
+        specialty_filtered_df = filtered_df[
+            filtered_df['Closer Name'] == closer_filter_5
+        ].copy()
+        chart_title_context = closer_filter_5
+        
+    # 2. Aggregate Data (Specialty Count only)
+    specialty_count = specialty_filtered_df['Dr Specialty'].value_counts().reset_index(name='Count')
+    specialty_count.columns = ['Dr Specialty', 'Count']
     
-    # 2. Aggregate Data (Specialty vs. Disposition)
-    specialty_dispo_count = specialty_filtered_df.groupby(
-        ['Dr Specialty', 'Chasing Disposition']
-    ).size().reset_index(name='Count')
-    
-    if not specialty_dispo_count.empty:
-        # 3. Create Stacked Bar Chart
+    if not specialty_count.empty:
+        # 🔴 FIX 3: Create Simple Bar Chart (Distribution of Dr Specialty)
         fig_specialty = px.bar(
-            specialty_dispo_count,
+            specialty_count,
             x='Dr Specialty',
             y='Count',
-            color='Chasing Disposition',
-            title=f"Disposition Breakdown by Specialty for Selected Closers",
+            title=f"Distribution of Leads by Doctor Specialty for {chart_title_context}",
+            text_auto=True,
             template='plotly_white',
+            color='Dr Specialty',
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
         fig_specialty.update_layout(
             xaxis_title="Doctor Specialty",
             yaxis_title="Count of Records",
-            barmode='stack',
             font=dict(size=PLOTLY_FONT_SIZE)
         )
         st.plotly_chart(fig_specialty, use_container_width=True)
     else:
-        st.info(f"No records found for the selected closers in this combination.")
+        st.info(f"No records found for the selected Closer(s) in this combination.")
 
 
 # --- Chart 6: Client Distribution (FULL WIDTH) ---
