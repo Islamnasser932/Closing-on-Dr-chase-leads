@@ -569,8 +569,8 @@ else:
     total_specialty_count = specialty_pie_data['Count'].sum()
     
     # 3. Aggregate Data (Specialty vs. Disposition) for Summary Table
-    # 🟢 Speciality Filter for Summary Table
-    specialty_list_options = ["All Specialties"] + sorted(specialty_filtered_df['Dr Specialty'].unique())
+    # 🟢 Speciality Filter for Summary Table (NEW FILTER)
+    specialty_list_options = sorted(specialty_filtered_df['Dr Specialty'].unique())
     selected_specialty_for_summary = col_summary_5.selectbox(
         "Filter Disposition by Specialty:",
         options=specialty_list_options,
