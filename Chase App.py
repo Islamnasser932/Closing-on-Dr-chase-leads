@@ -601,6 +601,71 @@ else:
     else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
+# ---------------------------------------------------------------------------------------
+# 🔴 NEW SECTION: Closer Comparison (Denied vs. Pending Shipping)
+# ---------------------------------------------------------------------------------------
+st.markdown("---")
+st.subheader("📊 Closer Comparison: Dr Denied vs. Pending Shipping")
+
+# 1. Define the specific dispositions to compare
+dispositions_to_compare = ['Dr Denied', 'Pending Shipping']
+
+# 2. Filter the dataframe for these dispositions
+comparison_df = filtered_df[
+    filtered_df['Chasing Disposition'].isin(dispositions_to_compare)
+].copy()
+
+if not comparison_df.empty:
+    # 3. Group by Closer and Disposition to get counts
+    comparison_summary = comparison_df.groupby(['Closer Name', 'Chasing Disposition']).size().reset_index(name='Count')
+    
+    # 4. Pivot the table for comparison
+    comparison_pivot = comparison_summary.pivot_table(
+        index='Closer Name',
+        columns='Chasing Disposition',
+        values='Count',
+        fill_value=0
+    )
+    
+    # 5. Ensure both columns exist even if one has no data
+    if 'Dr Denied' not in comparison_pivot.columns:
+        comparison_pivot['Dr Denied'] = 0
+    if 'Pending Shipping' not in comparison_pivot.columns:
+        comparison_pivot['Pending Shipping'] = 0
+        
+    # 6. Calculate Total and sort
+    comparison_pivot['Total (Denied + Pending)'] = comparison_pivot['Dr Denied'] + comparison_pivot['Pending Shipping']
+    comparison_pivot = comparison_pivot.sort_values(by='Total (Denied + Pending)', ascending=False)
+    
+    # 7. Cast all columns to int for JSON serialization
+    comparison_pivot['Dr Denied'] = comparison_pivot['Dr Denied'].astype(int)
+    comparison_pivot['Pending Shipping'] = comparison_pivot['Pending Shipping'].astype(int)
+    comparison_pivot['Total (Denied + Pending)'] = comparison_pivot['Total (Denied + Pending)'].astype(int)
+
+    # 8. Display the table
+    st.dataframe(
+        comparison_pivot,
+        use_container_width=True,
+        column_config={
+            "Dr Denied": st.column_config.NumberColumn(
+                "Dr Denied Count",
+                format="%d"
+            ),
+            "Pending Shipping": st.column_config.NumberColumn(
+                "Pending Shipping Count",
+                format="%d"
+            ),
+            "Total (Denied + Pending)": st.column_config.ProgressColumn(
+                "Total (Denied + Pending)",
+                format="%d",
+                min_value=0,
+                max_value=int(comparison_pivot['Total (Denied + Pending)'].max())
+            )
+        }
+    )
+else:
+    st.info("No records found for 'Dr Denied' or 'Pending Shipping' with the current filters.")
+
 
 # --- Chart 5: Dr Specialty vs Disposition (Modified to Treemap) ---
 st.markdown("---")
@@ -764,7 +829,7 @@ st.markdown("---")
 # ================== 9️⃣ DATA TABLE PREVIEW ==================
 st.subheader("📋 Filtered Dr Chase Data Preview")
 data_preview_cols = ['MCN', 'Closer Name', 'Chasing Disposition', 'Client', 'Dr Chase Lead Number', 
-                     'Approval date', 'Denial Date', 'Completion Date', 'Assigned date', 'Dr Specialty']
+                     'Approval date', 'Denial Date', 'Completion Date', 'Assigned date', 'Dr Specialty', 'Chaser Group'] # 🟢 Added Chaser Group
 
 # Filter available columns for display
 available_preview_cols = [col for col in data_preview_cols if col in filtered_df.columns]
