@@ -32,8 +32,8 @@ def load_and_enrich_dr_chase_data():
         date_cols_dr = ["Completion Date", "Assigned date", "Approval date", "Denial Date", "Upload Date", "Date of Sale", "Created Time"]
         for col in date_cols_dr:
             if col in dr.columns:
-                dr[col] = pd.to_datetime(col, errors='coerce', dayfirst=True) # FIX: Use col in to_datetime 
-        
+                dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True)
+
         # --- MCN Standardization ---
         for df_data in [dr, oplan]:
             if 'MCN' in df_data.columns:
@@ -570,23 +570,11 @@ else:
     
     # 3. Aggregate Data (Specialty vs. Disposition) for Summary Table
     # 🟢 Speciality Filter for Summary Table (NEW FILTER)
-    specialty_list_options = sorted(specialty_filtered_df['Dr Specialty'].unique())
-    selected_specialty_for_summary = col_summary_5.selectbox(
-        "Filter Disposition by Specialty:",
-        options=specialty_list_options,
-        key="dispo_specialty_filter"
-    )
-
-    if selected_specialty_for_summary == "All Specialties":
-        summary_base_df = specialty_filtered_df.copy()
-    else:
-        summary_base_df = specialty_filtered_df[
-            specialty_filtered_df['Dr Specialty'] == selected_specialty_for_summary
-        ].copy()
+    # 🔴 إزالة فلتر Specialty الإضافي: نستخدم فلتر Closer فقط.
     
     
-    # 4. Generate Summary Table Data
-    specialty_dispo_summary = summary_base_df.groupby('Chasing Disposition').size().reset_index(name='Total Count')
+    # 4. Generate Summary Table Data (Based on Closer Filter ONLY)
+    specialty_dispo_summary = specialty_filtered_df.groupby('Chasing Disposition').size().reset_index(name='Total Count')
     
     if not specialty_pie_data.empty:
         # 🟢 LEFT COLUMN: Pie Chart (Distribution of Dr Specialty)
@@ -599,16 +587,18 @@ else:
                 template='plotly_white',
                 color_discrete_sequence=px.colors.qualitative.Set1
             )
+            # 🔴 تفعيل خاصية التحديد (Selection) لتوجيه المستخدمين
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             fig_pie.update_layout(
                 font=dict(size=PLOTLY_FONT_SIZE),
                 title_font=dict(size=PLOTLY_FONT_SIZE + 4)
             )
+            # 🔴 استرجاع المخطط لكن بدون تفعيل on_select المباشر لتجنب التعقيدات
             st.plotly_chart(fig_pie, use_container_width=True)
 
         # 🟢 RIGHT COLUMN: Summary Table (Top Dispositions in that context)
         with col_summary_5:
-            st.markdown("### Disposition Summary by Specialty")
+            st.markdown("### Disposition Summary for Specialty")
             
             dispo_summary_table = specialty_dispo_summary.copy()
             
@@ -620,6 +610,10 @@ else:
                 dispo_summary_table['Percentage'] = 0.0
 
             dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
+            
+            # 🟢 شرح التصفية للواجهة
+            st.info("The table below shows Dispositions for ALL Specialties handled by the Closer(s) selected above.")
+
 
             # Sort and display top dispositions
             st.dataframe(
@@ -640,7 +634,6 @@ else:
                     )
                 }
             )
-            st.info(f"Total leads analyzed: {total_summary_count:,}")
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
