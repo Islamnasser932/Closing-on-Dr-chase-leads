@@ -569,9 +569,24 @@ else:
     total_specialty_count = specialty_pie_data['Count'].sum()
     
     # 3. Aggregate Data (Specialty vs. Disposition) for Summary Table
-    specialty_dispo_summary = specialty_filtered_df.groupby(
-        ['Dr Specialty', 'Chasing Disposition']
-    ).size().reset_index(name='Count')
+    # 🟢 Speciality Filter for Summary Table
+    specialty_list_options = ["All Specialties"] + sorted(specialty_filtered_df['Dr Specialty'].unique())
+    selected_specialty_for_summary = col_summary_5.selectbox(
+        "Filter Disposition by Specialty:",
+        options=specialty_list_options,
+        key="dispo_specialty_filter"
+    )
+
+    if selected_specialty_for_summary == "All Specialties":
+        summary_base_df = specialty_filtered_df.copy()
+    else:
+        summary_base_df = specialty_filtered_df[
+            specialty_filtered_df['Dr Specialty'] == selected_specialty_for_summary
+        ].copy()
+    
+    
+    # 4. Generate Summary Table Data
+    specialty_dispo_summary = summary_base_df.groupby('Chasing Disposition').size().reset_index(name='Total Count')
     
     if not specialty_pie_data.empty:
         # 🟢 LEFT COLUMN: Pie Chart (Distribution of Dr Specialty)
@@ -595,11 +610,15 @@ else:
         with col_summary_5:
             st.markdown("### Disposition Summary by Specialty")
             
-            dispo_summary_table = specialty_dispo_summary.groupby('Chasing Disposition')['Count'].sum().reset_index(name='Total Count')
+            dispo_summary_table = specialty_dispo_summary.copy()
             
             # Cast columns to native Python types for display
             total_summary_count = int(dispo_summary_table['Total Count'].sum())
-            dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_summary_count * 100).round(1).astype(float)
+            if total_summary_count > 0:
+                dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_summary_count * 100).round(1).astype(float)
+            else:
+                dispo_summary_table['Percentage'] = 0.0
+
             dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
 
             # Sort and display top dispositions
