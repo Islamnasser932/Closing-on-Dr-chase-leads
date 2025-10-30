@@ -484,9 +484,13 @@ closer_list = sorted(filtered_df['Closer Name'].unique())
 if not closer_list:
     st.info("No closers available for individual breakdown.")
 else:
+    # 🟢 Set default selection to the first available closer
+    default_rank_selection = closer_list[0] if closer_list else None
+    
     selected_closer = st.selectbox(
         "Select Closer to Analyze Disposition Ranking:", 
         options=closer_list, 
+        index=closer_list.index(default_rank_selection) if default_rank_selection else 0,
         key="closer_ranking_select"
     )
     
@@ -529,7 +533,7 @@ else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
 
-# --- Chart 5: Closer -> Specialty -> Disposition Treemap (REPLACED) ---
+# --- Chart 5: Closer -> Specialty vs Disposition (REPLACED 3D TREEMAP) ---
 st.markdown("---")
 st.subheader("🏥 Dr Specialty Performance by Disposition")
 
@@ -539,15 +543,16 @@ closer_list_all = sorted(filtered_df['Closer Name'].unique())
 if not closer_list_all:
     st.info("No data available for this breakdown.")
 else:
-    closer_filter_5 = st.selectbox(
-        "Select Closer to Analyze Specialty Breakdown:", 
+    closer_filter_5 = st.multiselect(
+        "Select Closer(s) to Analyze Specialty Breakdown:", 
         options=closer_list_all, 
+        default=closer_list_all, # Select all by default
         key="specialty_closer_filter"
     )
     
     # Filter data based on selected closer
     specialty_filtered_df = filtered_df[
-        filtered_df['Closer Name'] == closer_filter_5
+        filtered_df['Closer Name'].isin(closer_filter_5)
     ].copy()
     
     # 2. Aggregate Data (Specialty vs. Disposition)
@@ -562,7 +567,7 @@ else:
             x='Dr Specialty',
             y='Count',
             color='Chasing Disposition',
-            title=f"Disposition Breakdown by Specialty for {closer_filter_5}",
+            title=f"Disposition Breakdown by Specialty for Selected Closers",
             template='plotly_white',
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
@@ -574,7 +579,7 @@ else:
         )
         st.plotly_chart(fig_specialty, use_container_width=True)
     else:
-        st.info(f"No records found for {closer_filter_5} in this combination.")
+        st.info(f"No records found for the selected closers in this combination.")
 
 
 # --- Chart 6: Client Distribution (FULL WIDTH) ---
