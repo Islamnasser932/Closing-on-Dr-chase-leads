@@ -32,7 +32,8 @@ def load_and_enrich_dr_chase_data():
         date_cols_dr = ["Completion Date", "Assigned date", "Approval date", "Denial Date", "Upload Date", "Date of Sale", "Created Time"]
         for col in date_cols_dr:
             if col in dr.columns:
-                dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True)
+                # FIX: Ensure proper parsing of column values
+                dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True) 
 
         # --- MCN Standardization ---
         for df_data in [dr, oplan]:
@@ -569,11 +570,9 @@ else:
     total_specialty_count = specialty_pie_data['Count'].sum()
     
     # 3. Aggregate Data (Specialty vs. Disposition) for Summary Table
-    # 🟢 Speciality Filter for Summary Table (NEW FILTER)
     # 🔴 إزالة فلتر Specialty الإضافي: نستخدم فلتر Closer فقط.
     
-    
-    # 4. Generate Summary Table Data (Based on Closer Filter ONLY)
+    # 4. Generate Summary Table Data
     specialty_dispo_summary = specialty_filtered_df.groupby('Chasing Disposition').size().reset_index(name='Total Count')
     
     if not specialty_pie_data.empty:
@@ -587,18 +586,16 @@ else:
                 template='plotly_white',
                 color_discrete_sequence=px.colors.qualitative.Set1
             )
-            # 🔴 تفعيل خاصية التحديد (Selection) لتوجيه المستخدمين
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             fig_pie.update_layout(
                 font=dict(size=PLOTLY_FONT_SIZE),
                 title_font=dict(size=PLOTLY_FONT_SIZE + 4)
             )
-            # 🔴 استرجاع المخطط لكن بدون تفعيل on_select المباشر لتجنب التعقيدات
             st.plotly_chart(fig_pie, use_container_width=True)
 
         # 🟢 RIGHT COLUMN: Summary Table (Top Dispositions in that context)
         with col_summary_5:
-            st.markdown("### Disposition Summary for Specialty")
+            st.markdown("### Disposition Summary by Specialty")
             
             dispo_summary_table = specialty_dispo_summary.copy()
             
@@ -610,10 +607,6 @@ else:
                 dispo_summary_table['Percentage'] = 0.0
 
             dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
-            
-            # 🟢 شرح التصفية للواجهة
-            st.info("The table below shows Dispositions for ALL Specialties handled by the Closer(s) selected above.")
-
 
             # Sort and display top dispositions
             st.dataframe(
@@ -634,6 +627,7 @@ else:
                     )
                 }
             )
+            st.info(f"Total leads analyzed: {total_summary_count:,}")
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
