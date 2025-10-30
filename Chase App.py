@@ -10,6 +10,7 @@ import re # 🔴 Import re for helper functions
 
 # ================== 0️⃣ CONFIGURATION ==================
 st.set_page_config(
+    # 🔴 تحديث: تغيير page_title
     page_title="Closing Analysis on Dr chase Leads",
     page_icon="📊",
     layout="wide",
