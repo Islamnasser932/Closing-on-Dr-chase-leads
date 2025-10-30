@@ -529,30 +529,52 @@ else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
 
-# --- Chart 5: Closer -> Specialty -> Disposition Treemap (NEW SECTION) ---
+# --- Chart 5: Closer -> Specialty -> Disposition Treemap (REPLACED) ---
 st.markdown("---")
-st.subheader("🕸️ Closer, Specialty, and Disposition Relationship")
+st.subheader("🏥 Dr Specialty Performance by Disposition")
 
-treemap_3d_data = filtered_df.dropna(subset=['Closer Name', 'Dr Specialty', 'Chasing Disposition']).copy()
+# 1. Closer Filter for the chart (New selectbox)
+closer_list_all = sorted(filtered_df['Closer Name'].unique())
 
-if not treemap_3d_data.empty:
-    fig5_3d = px.treemap(
-        treemap_3d_data,
-        path=[px.Constant("All Leads"), 'Closer Name', 'Dr Specialty', 'Chasing Disposition'],
-        title="Closer Breakdown by Doctor Specialty and Final Disposition",
-        template='plotly_white',
-        color='Chasing Disposition',
-        color_discrete_sequence=px.colors.qualitative.Set3
+if not closer_list_all:
+    st.info("No data available for this breakdown.")
+else:
+    closer_filter_5 = st.selectbox(
+        "Select Closer to Analyze Specialty Breakdown:", 
+        options=closer_list_all, 
+        key="specialty_closer_filter"
     )
     
-    fig5_3d.update_layout(
-        margin = dict(t=50, l=25, r=25, b=25),
-        font=dict(size=PLOTLY_FONT_SIZE + 2),
-        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
-    )
-    st.plotly_chart(fig5_3d, use_container_width=True)
-else:
-    st.warning("No complete data available for the Closer/Specialty/Disposition Treemap.")
+    # Filter data based on selected closer
+    specialty_filtered_df = filtered_df[
+        filtered_df['Closer Name'] == closer_filter_5
+    ].copy()
+    
+    # 2. Aggregate Data (Specialty vs. Disposition)
+    specialty_dispo_count = specialty_filtered_df.groupby(
+        ['Dr Specialty', 'Chasing Disposition']
+    ).size().reset_index(name='Count')
+    
+    if not specialty_dispo_count.empty:
+        # 3. Create Stacked Bar Chart
+        fig_specialty = px.bar(
+            specialty_dispo_count,
+            x='Dr Specialty',
+            y='Count',
+            color='Chasing Disposition',
+            title=f"Disposition Breakdown by Specialty for {closer_filter_5}",
+            template='plotly_white',
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+        fig_specialty.update_layout(
+            xaxis_title="Doctor Specialty",
+            yaxis_title="Count of Records",
+            barmode='stack',
+            font=dict(size=PLOTLY_FONT_SIZE)
+        )
+        st.plotly_chart(fig_specialty, use_container_width=True)
+    else:
+        st.info(f"No records found for {closer_filter_5} in this combination.")
 
 
 # --- Chart 6: Client Distribution (FULL WIDTH) ---
