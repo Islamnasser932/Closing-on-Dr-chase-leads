@@ -439,7 +439,7 @@ treemap_data = filtered_df.dropna(subset=['Closer Name', 'Chasing Disposition'])
 treemap_data_agg = treemap_data.groupby(['Closer Name', 'Chasing Disposition']).size().reset_index(name='Count')
 closer_totals_agg = treemap_data_agg.groupby('Closer Name')['Count'].sum().reset_index(name='Closer Total')
 treemap_data_agg = pd.merge(treemap_data_agg, closer_totals_agg, on='Closer Name', how='left')
-treemap_data_agg['Percentage'] = (treemap_data_agg['Count'] / closer_totals_agg['Closer Total'])
+treemap_data_agg['Percentage'] = (treemap_data_agg['Count'] / treemap_data_agg['Closer Total'])
 # 🔴 FIX: إزالة <br> لعرض النص في سطر واحد
 treemap_data_agg['Custom Label'] = treemap_data_agg.apply(
     lambda row: f"{row['Count']:,} ({row['Percentage'] * 100:.1f}%)", axis=1
