@@ -6,15 +6,26 @@ import plotly.graph_objects as go
 from streamlit_extras.metric_cards import style_metric_cards
 import numpy as np 
 import math 
+import re # 🔴 Import re for helper functions
 
 # ================== 0️⃣ CONFIGURATION ==================
 st.set_page_config(
-    # 🔴 تحديث: تغيير page_title
     page_title="Closing Analysis on Dr chase Leads",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# 🟢 NEW HELPER FUNCTIONS (From user request)
+def norm(s: str) -> str:
+    return re.sub(r'[^a-z0-9]+', '', str(s).strip().lower())
+
+def find_col(df_cols, candidates):
+    cand_norm = {norm(c) for c in candidates}
+    for c in df_cols:
+        if norm(c) in cand_norm:
+            return c
+    return None
 
 # ================== 1️⃣ DATA LOADING (Dr Chase only) ==================
 @st.cache_data
@@ -53,7 +64,7 @@ def load_and_enrich_dr_chase_data():
         if 'Client' in dr.columns:
             dr['Client'] = dr['Client'].fillna('N/A - Client Missing')
             
-        # 🟢 ENRICHMENT LOGIC: Transfer Closer Name to DR CHASE
+        # 🟢 ENRICHMENT LOGIC 1: Transfer Closer Name to DR CHASE
         
         # 1. Prepare OPlan Closer Data (Deduplicate MCNs - keep first name)
         oplan_closer_map = oplan[['MCN', 'Closer Name']].copy()
@@ -74,6 +85,47 @@ def load_and_enrich_dr_chase_data():
             )
             # Fill Closer Names for Dr Chase MCNs that don't match OPlan 
             dr['Closer Name'] = dr['Closer Name'].fillna('No OPlan Match') 
+        
+        # 🟢 ENRICHMENT LOGIC 2: Add Chaser Group
+        
+        # 1. Define maps
+        name_map = {
+            "a.williams": "Alfred Williams", "david.smith": "David Smith", "jimmy.daves": "Grayson Saint",
+            "e.moore": "Eddie Moore", "aurora.stevens": "Aurora Stevens", "grayson.saint": "Grayson Saint",
+            "emma.wilson": "Emma Wilson", "scarlett.mitchell": "Scarlett Mitchell", "lucas.diago": "Lucas Diago",
+            "mia.alaxendar": "Mia Alaxendar", "ivy.brooks": "Ivy Brooks", "timothy.williams": "Timothy Williams",
+            "sarah.adams": "Sarah Adams", "sara.adams": "Sarah Adams", "samy.youssef": "Samy Youssef",
+            "candy.johns": "Candy Johns", "heather.robertson": "Heather Robertson", "a.cabello": "Andrew Cabello",
+            "alia.scott": "Alia Scott", "sandra.sebastian": "Sandra Sebastian", "kayla.miller": "Kayla Miller"
+        }
+
+        samy_chasers = {
+            "Emma Wilson", "Scarlett Mitchell", "Lucas Diago", "Mia Alaxendar",
+            "Candy Johns", "Sandra Sebastian", "Alia Scott",
+            "Ivy Brooks", "Heather Robertson", "Samy Youssef",
+            "Sarah Adams", "Timothy Williams"
+        }
+        
+        # 2. Find Chaser Column in Dr Chase
+        syn_assigned_to_chase = ["assigned to chase", "assigned_to_chase", "assigned to", "assigned user (chase)", "assigned chaser", "DR Chase Agent"]
+        assigned_col = find_col(dr.columns, syn_assigned_to_chase)
+        
+        if assigned_col:
+            # 3. Create Mapped Name and Group
+            dr["Chaser Name (Mapped)"] = (
+                dr[assigned_col]
+                .astype(str).str.strip().str.lower()
+                .map(name_map)
+                .fillna(dr[assigned_col])
+            )
+            
+            dr["Chaser Group"] = dr["Chaser Name (Mapped)"].apply(
+                lambda n: "Samy Chasers" if n in samy_chasers else "Andrew Chasers"
+            )
+        else:
+            # Fallback if column not found
+            dr["Chaser Name (Mapped)"] = "N/A"
+            dr["Chaser Group"] = "N/A"
         
         # We only return the enriched Dr Chase data
         total_dr_rows = len(dr)
@@ -187,6 +239,17 @@ with st.sidebar:
         key='selected_closers_state',
         on_change=update_closer_selection
     )
+
+    # 🟢 NEW: Chaser Group Filter
+    if "Chaser Group" in working_df.columns:
+        chaser_group_options = sorted(working_df['Chaser Group'].unique())
+        selected_chaser_groups = st.multiselect(
+            "👥 Chaser Group (Samy/Andrew)",
+            options=chaser_group_options,
+            default=chaser_group_options
+        )
+    else:
+        selected_chaser_groups = []
     
     # Use expander for primary secondary filters
     with st.expander("⬇️ Advanced Filters: Disposition & Client", expanded=False):
@@ -224,6 +287,10 @@ filtered_df = working_df.copy()
 # Apply the active closer filter
 if active_closers:
     filtered_df = filtered_df[filtered_df['Closer Name'].isin(active_closers)]
+
+# 🟢 Apply Chaser Group filter
+if selected_chaser_groups:
+    filtered_df = filtered_df[filtered_df['Chaser Group'].isin(selected_chaser_groups)]
 
 # Apply other filters
 if selected_dispositions:
