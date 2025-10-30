@@ -534,7 +534,7 @@ else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
 
-# --- Chart 5: Dr Specialty vs Disposition (Modified to PIE + Summary) ---
+# --- Chart 5: Dr Specialty vs Disposition (Modified to Treemap) ---
 st.markdown("---")
 st.subheader("🏥 Dr Specialty Performance Analysis")
 
@@ -561,31 +561,30 @@ else:
         ].copy()
         chart_title_context = closer_filter_5
         
-    # 2. Aggregate Data (Specialty Count for Pie Chart)
-    specialty_pie_data = specialty_filtered_df['Dr Specialty'].value_counts().reset_index(name='Count')
-    specialty_pie_data.columns = ['Dr Specialty', 'Count']
-    total_specialty_count = specialty_pie_data['Count'].sum()
+    # 2. Aggregate Data (Specialty vs. Disposition)
+    specialty_dispo_summary = specialty_filtered_df.groupby(
+        ['Dr Specialty', 'Chasing Disposition']
+    ).size().reset_index(name='Count')
     
-    if not specialty_pie_data.empty:
-        # 🟢 3. Pie Chart (Distribution of Dr Specialty)
-        fig_pie = px.pie(
-            specialty_pie_data,
-            names='Dr Specialty',
+    if not specialty_dispo_summary.empty:
+        # 🟢 3. Treemap (Dr Specialty -> Chasing Disposition)
+        fig_treemap_specialty = px.treemap(
+            specialty_dispo_summary,
+            path=[px.Constant(chart_title_context), 'Dr Specialty', 'Chasing Disposition'],
             values='Count',
-            title=f"Dr Specialty Distribution for {chart_title_context}",
+            title=f"Dr Specialty & Disposition Breakdown for {chart_title_context}",
             template='plotly_white',
-            color_discrete_sequence=px.colors.qualitative.Set1
+            color='Dr Specialty',
+            color_discrete_sequence=px.colors.qualitative.Set2
         )
-        fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-        fig_pie.update_layout(
-            font=dict(size=PLOTLY_FONT_SIZE),
+        
+        fig_treemap_specialty.update_layout(
+            margin = dict(t=50, l=25, r=25, b=25),
+            font=dict(size=PLOTLY_FONT_SIZE + 2),
             title_font=dict(size=PLOTLY_FONT_SIZE + 4)
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-        # 🟢 4. Summary Table (Top Dispositions in that context)
-        # 🔴 (تم حذف هذا الجزء بناءً على طلبك)
         
+        st.plotly_chart(fig_treemap_specialty, use_container_width=True)
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
