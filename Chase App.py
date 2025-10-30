@@ -634,7 +634,7 @@ st.markdown("---")
 # ================== 9️⃣ DATA TABLE PREVIEW ==================
 st.subheader("📋 Filtered Dr Chase Data Preview")
 data_preview_cols = ['MCN', 'Closer Name', 'Chasing Disposition', 'Client', 'Dr Chase Lead Number', 
-                     'Approval date', 'Denial Date', 'Completion Date', 'Assigned date']
+                     'Approval date', 'Denial Date', 'Completion Date', 'Assigned date', 'Dr Specialty']
 
 # Filter available columns for display
 available_preview_cols = [col for col in data_preview_cols if col in filtered_df.columns]
