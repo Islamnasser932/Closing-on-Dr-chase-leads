@@ -44,6 +44,10 @@ def load_and_enrich_dr_chase_data():
         if 'Chasing Disposition' in dr.columns:
             dr['Chasing Disposition'] = dr['Chasing Disposition'].fillna('N/A - Disposition')
 
+        # 🟢 NEW: Clean Dr Specialty Column
+        if 'Dr Specialty' in dr.columns:
+            dr['Dr Specialty'] = dr['Dr Specialty'].astype(str).str.strip().fillna('N/A Specialty')
+        
         # Final Dr Chase Column Cleanup (for display simplicity)
         if 'Client' in dr.columns:
             dr['Client'] = dr['Client'].fillna('N/A - Client Missing')
