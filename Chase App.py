@@ -428,8 +428,8 @@ treemap_data = filtered_df.dropna(subset=['Closer Name', 'Chasing Disposition'])
 
 # 🟢 NEW LOGIC: Calculate percentages for display in the Treemap
 treemap_data_agg = treemap_data.groupby(['Closer Name', 'Chasing Disposition']).size().reset_index(name='Count')
-closer_totals = treemap_data_agg.groupby('Closer Name')['Count'].sum().reset_index(name='Closer Total')
-treemap_data_agg = pd.merge(treemap_data_agg, closer_totals, on='Closer Name', how='left')
+closer_totals_agg = treemap_data_agg.groupby('Closer Name')['Count'].sum().reset_index(name='Closer Total')
+treemap_data_agg = pd.merge(treemap_data_agg, closer_totals_agg, on='Closer Name', how='left')
 treemap_data_agg['Percentage'] = (treemap_data_agg['Count'] / treemap_data_agg['Closer Total'])
 # 🔴 FIX: إزالة <br> لعرض النص في سطر واحد
 treemap_data_agg['Custom Label'] = treemap_data_agg.apply(
@@ -466,7 +466,51 @@ else:
     st.warning("No data available to display the Treemap based on current filters.")
 
 
-# --- Chart 4: Client Distribution (FULL WIDTH) ---
+# --- Chart 4: Closer-Specific Disposition Ranking (NEW SECTION) ---
+st.markdown("---")
+st.subheader("🕵️ Closer-Specific Disposition Ranking")
+
+closer_list = sorted(filtered_df['Closer Name'].unique())
+
+if not closer_list:
+    st.info("No closers available for individual breakdown.")
+else:
+    selected_closer = st.selectbox(
+        "Select Closer to Analyze Disposition Ranking:", 
+        options=closer_list, 
+        key="closer_ranking_select"
+    )
+    
+    # Filter data for the selected closer
+    closer_data = filtered_df[filtered_df['Closer Name'] == selected_closer].copy()
+    
+    if not closer_data.empty:
+        # Aggregate dispositions for the selected closer
+        closer_dispo_ranking = closer_data['Chasing Disposition'].value_counts().reset_index()
+        closer_dispo_ranking.columns = ['Disposition', 'Count']
+        
+        fig_ranking = px.bar(
+            closer_dispo_ranking,
+            x='Count',
+            y='Disposition',
+            orientation='h', # Horizontal Bar Chart for easy ranking
+            title=f"Disposition Ranking for {selected_closer}",
+            text_auto=True,
+            template='plotly_white',
+            color='Disposition',
+            color_discrete_sequence=px.colors.qualitative.Bold
+        )
+        fig_ranking.update_layout(
+            yaxis={'categoryorder':'total ascending'}, # Sort lowest to highest on Y-axis
+            font=dict(size=PLOTLY_FONT_SIZE)
+        )
+        st.plotly_chart(fig_ranking, use_container_width=True)
+    else:
+        st.info(f"No records found for {selected_closer} under current filters.")
+
+
+
+# --- Chart 5: Client Distribution (FULL WIDTH) ---
 st.markdown("### Client Distribution Analysis")
 client_count = filtered_df['Client'].value_counts().reset_index()
 client_count.columns = ["Client", "Count"]
@@ -493,7 +537,7 @@ else:
     st.warning("No data available to display Client Distribution based on current filters.")
 
 
-# --- Time Series Analysis Section (Chart 5) ---
+# --- Time Series Analysis Section (Chart 6) ---
 st.markdown("---")
 st.subheader("📈 Key Activity Time Series Analysis")
 
