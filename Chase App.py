@@ -334,6 +334,10 @@ with col_closer_summary:
     
     # 🟢 عرض جدول أداء كل Closer بالضبط كما طلب المستخدم
     if not closer_count.empty:
+        # 🔴 FINAL FIX: Cast columns to native Python types before st.dataframe
+        closer_count['Count'] = closer_count['Count'].astype(int)
+        closer_count['Percentage'] = closer_count['Percentage'].astype(float)
+        
         st.dataframe(
             closer_count,
             use_container_width=True,
@@ -399,8 +403,9 @@ with col_dispo_table:
     
     # 🔴 FIX: Convert sum result to int before using in ProgressColumn max_value
     total_records = int(disposition_summary['Count'].sum())
-    disposition_summary['Percentage'] = (disposition_summary['Count'] / total_records * 100).round(1)
-    
+    disposition_summary['Percentage'] = (disposition_summary['Count'] / total_records * 100).round(1).astype(float) # Cast to float
+    disposition_summary['Count'] = disposition_summary['Count'].astype(int) # Cast Count
+
     # عرض ملخص الداتا في جدول (أفضل 10 حالات)
     st.dataframe(
         disposition_summary.head(10), 
@@ -490,10 +495,12 @@ else:
         closer_dispo_ranking.columns = ['Disposition', 'Count']
         
         # 🔴 NEW LOGIC: Calculate Percentage Share for the selected Closer
-        total_closer_records_ranking = closer_dispo_ranking['Count'].sum()
-        closer_dispo_ranking['Percentage'] = (closer_dispo_ranking['Count'] / total_closer_records_ranking * 100).round(1)
-
-
+        total_closer_records_ranking = int(closer_dispo_ranking['Count'].sum()) # Cast to int
+        
+        # Cast columns to native Python types for JSON compatibility
+        closer_dispo_ranking['Percentage'] = (closer_dispo_ranking['Count'] / total_closer_records_ranking * 100).round(1).astype(float) 
+        closer_dispo_ranking['Count'] = closer_dispo_ranking['Count'].astype(int) 
+        
         # 🟢 Display as Streamlit DataFrame (Table)
         st.dataframe(
             closer_dispo_ranking,
