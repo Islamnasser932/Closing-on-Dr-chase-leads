@@ -32,8 +32,8 @@ def load_and_enrich_dr_chase_data():
         date_cols_dr = ["Completion Date", "Assigned date", "Approval date", "Denial Date", "Upload Date", "Date of Sale", "Created Time"]
         for col in date_cols_dr:
             if col in dr.columns:
-                dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True)
-
+                dr[col] = pd.to_datetime(col, errors='coerce', dayfirst=True) # FIX: Use col in to_datetime 
+        
         # --- MCN Standardization ---
         for df_data in [dr, oplan]:
             if 'MCN' in df_data.columns:
