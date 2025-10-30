@@ -508,12 +508,16 @@ if not available_date_cols:
 else:
     # User Selection of Time Column
     time_col = st.selectbox("Select time dimension:", available_date_cols, key="ts_time_col")
-
+    
+    # 🔴 NEW DEBUGGING: Show valid date count
+    valid_count = filtered_df[time_col].notna().sum()
+    st.markdown(f"**Valid Records for {time_col}: {valid_count:,}**") 
+    
     # Filter data for records with valid selected date
     df_ts = filtered_df[filtered_df[time_col].notna()].copy()
     
     if df_ts.empty:
-        st.info(f"No records with valid '{time_col}' after applying filters.")
+        st.info(f"No valid records to plot using '{time_col}' (Count: {valid_count:,}). Try another dimension.")
     else:
         # Aggregation Frequency Selection
         freq = st.radio("Time aggregation level:", ["Daily", "Weekly", "Monthly"], horizontal=True, key="ts_freq_radio")
