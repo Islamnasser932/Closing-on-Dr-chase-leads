@@ -545,11 +545,12 @@ if not closer_list_all:
     st.info("No data available for this breakdown.")
 else:
     # 🔴 Setting up two columns for Pie Chart and Summary
-    col_chart_5, col_summary_5 = st.columns([1, 1])
+    # 📌 نستخدم عمود واحد فقط للمخطط والملخص
+    col_full_width_chart = st.columns(1)[0] 
 
     # 🔴 Filtering Logic setup (using All Closers by default)
     closer_options_5 = ["All Closers"] + closer_list_all
-    closer_filter_5 = col_chart_5.selectbox(
+    closer_filter_5 = st.selectbox(
         "Select Closer for Specialty Analysis:", 
         options=closer_options_5, 
         key="specialty_closer_filter"
@@ -570,14 +571,14 @@ else:
     total_specialty_count = specialty_pie_data['Count'].sum()
     
     # 3. Aggregate Data (Specialty vs. Disposition) for Summary Table
-    # 🔴 إزالة فلتر Specialty الإضافي: نستخدم فلتر Closer فقط.
-    
-    # 4. Generate Summary Table Data
+    # 🔴 إزالة فلتر Specialty الإضافي (تم حذفه)
+
+    # 4. Generate Summary Table Data (Based on Closer Filter ONLY)
     specialty_dispo_summary = specialty_filtered_df.groupby('Chasing Disposition').size().reset_index(name='Total Count')
     
     if not specialty_pie_data.empty:
-        # 🟢 LEFT COLUMN: Pie Chart (Distribution of Dr Specialty)
-        with col_chart_5:
+        # 🟢 Pie Chart (Distribution of Dr Specialty)
+        with col_full_width_chart:
             fig_pie = px.pie(
                 specialty_pie_data,
                 names='Dr Specialty',
@@ -593,41 +594,40 @@ else:
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
-        # 🟢 RIGHT COLUMN: Summary Table (Top Dispositions in that context)
-        with col_summary_5:
-            st.markdown("### Disposition Summary by Specialty")
-            
-            dispo_summary_table = specialty_dispo_summary.copy()
-            
-            # Cast columns to native Python types for display
-            total_summary_count = int(dispo_summary_table['Total Count'].sum())
-            if total_summary_count > 0:
-                dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_summary_count * 100).round(1).astype(float)
-            else:
-                dispo_summary_table['Percentage'] = 0.0
+        # 🟢 Display Disposition Summary Table directly underneath the Pie Chart
+        st.markdown("### Disposition Summary for Specialty")
+        
+        dispo_summary_table = specialty_dispo_summary.copy()
+        
+        # Cast columns to native Python types for display
+        total_summary_count = int(dispo_summary_table['Total Count'].sum())
+        if total_summary_count > 0:
+            dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_summary_count * 100).round(1).astype(float)
+        else:
+            dispo_summary_table['Percentage'] = 0.0
 
-            dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
+        dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
 
-            # Sort and display top dispositions
-            st.dataframe(
-                dispo_summary_table.sort_values('Total Count', ascending=False).head(10),
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Chasing Disposition": "Disposition",
-                    "Total Count": st.column_config.ProgressColumn(
-                        "Count",
-                        format="%d",
-                        min_value=0,
-                        max_value=total_summary_count,
-                    ),
-                    "Percentage": st.column_config.NumberColumn(
-                        "Overall %",
-                        format="%.1f%%",
-                    )
-                }
-            )
-            st.info(f"Total leads analyzed: {total_summary_count:,}")
+        # Sort and display top dispositions
+        st.dataframe(
+            dispo_summary_table.sort_values('Total Count', ascending=False).head(10),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Chasing Disposition": "Disposition",
+                "Total Count": st.column_config.ProgressColumn(
+                    "Count",
+                    format="%d",
+                    min_value=0,
+                    max_value=total_summary_count,
+                ),
+                "Percentage": st.column_config.NumberColumn(
+                    "Overall %",
+                    format="%.1f%%",
+                )
+            }
+        )
+        st.info(f"Total leads analyzed: {total_summary_count:,}")
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
