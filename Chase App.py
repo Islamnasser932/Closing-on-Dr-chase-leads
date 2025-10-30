@@ -508,7 +508,7 @@ if not available_date_cols:
 else:
     # User Selection of Time Column
     time_col = st.selectbox("Select time dimension:", available_date_cols, key="ts_time_col")
-    
+
     # 🔴 NEW DEBUGGING: Show valid date count
     valid_count = filtered_df[time_col].notna().sum()
     st.markdown(f"**Valid Records for {time_col}: {valid_count:,}**") 
