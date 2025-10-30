@@ -566,8 +566,11 @@ else:
     specialty_pie_data.columns = ['Dr Specialty', 'Count']
     total_specialty_count = specialty_pie_data['Count'].sum()
     
+    # 3. Aggregate Data (Specialty vs. Disposition) for Summary Table
+    # 🔴 إزالة فلتر Specialty الإضافي (تم حذفه)
+    
     if not specialty_pie_data.empty:
-        # 🟢 3. Pie Chart (Distribution of Dr Specialty)
+        # 🟢 4. Pie Chart (Distribution of Dr Specialty)
         fig_pie = px.pie(
             specialty_pie_data,
             names='Dr Specialty',
@@ -583,41 +586,9 @@ else:
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
-        # 🟢 4. Summary Table (Top Dispositions in that context)
-        st.markdown("### Disposition Summary for Specialty")
+        # 🟢 5. Summary Table (Top Dispositions in that context)
+        # 🔴 (تم حذف هذا الجزء بناءً على طلبك الأخير)
         
-        specialty_dispo_summary = specialty_filtered_df.groupby('Chasing Disposition').size().reset_index(name='Total Count')
-        dispo_summary_table = specialty_dispo_summary.copy()
-        
-        # Cast columns to native Python types for display
-        total_summary_count = int(dispo_summary_table['Total Count'].sum())
-        if total_summary_count > 0:
-            dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_summary_count * 100).round(1).astype(float)
-        else:
-            dispo_summary_table['Percentage'] = 0.0
-
-        dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
-
-        # Sort and display top dispositions
-        st.dataframe(
-            dispo_summary_table.sort_values('Total Count', ascending=False).head(10),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Chasing Disposition": "Disposition",
-                "Total Count": st.column_config.ProgressColumn(
-                    "Count",
-                    format="%d",
-                    min_value=0,
-                    max_value=total_summary_count,
-                ),
-                "Percentage": st.column_config.NumberColumn(
-                    "Overall %",
-                    format="%.1f%%",
-                )
-            }
-        )
-        st.info(f"Total leads analyzed: {total_summary_count:,}")
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
