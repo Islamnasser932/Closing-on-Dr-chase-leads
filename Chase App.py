@@ -529,8 +529,33 @@ else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
 
+# --- Chart 5: Closer -> Specialty -> Disposition Treemap (NEW SECTION) ---
+st.markdown("---")
+st.subheader("🕸️ Closer, Specialty, and Disposition Relationship")
 
-# --- Chart 5: Client Distribution (FULL WIDTH) ---
+treemap_3d_data = filtered_df.dropna(subset=['Closer Name', 'Dr Specialty', 'Chasing Disposition']).copy()
+
+if not treemap_3d_data.empty:
+    fig5_3d = px.treemap(
+        treemap_3d_data,
+        path=[px.Constant("All Leads"), 'Closer Name', 'Dr Specialty', 'Chasing Disposition'],
+        title="Closer Breakdown by Doctor Specialty and Final Disposition",
+        template='plotly_white',
+        color='Chasing Disposition',
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+    
+    fig5_3d.update_layout(
+        margin = dict(t=50, l=25, r=25, b=25),
+        font=dict(size=PLOTLY_FONT_SIZE + 2),
+        title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+    )
+    st.plotly_chart(fig5_3d, use_container_width=True)
+else:
+    st.warning("No complete data available for the Closer/Specialty/Disposition Treemap.")
+
+
+# --- Chart 6: Client Distribution (FULL WIDTH) ---
 st.markdown("### Client Distribution Analysis")
 client_count = filtered_df['Client'].value_counts().reset_index()
 client_count.columns = ["Client", "Count"]
@@ -557,7 +582,7 @@ else:
     st.warning("No data available to display Client Distribution based on current filters.")
 
 
-# --- Time Series Analysis Section (Chart 6) ---
+# --- Time Series Analysis Section (Chart 7) ---
 st.markdown("---")
 st.subheader("📈 Key Activity Time Series Analysis")
 
