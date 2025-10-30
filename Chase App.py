@@ -289,6 +289,10 @@ PLOTLY_FONT_SIZE = 14
 
 st.subheader("Distribution Analysis")
 
+# 🔴 التشخيص: عدد الصفوف النشطة (للتأكد من أن الفلاتر تعمل)
+st.info(f"Active Leads (after all filters): {len(filtered_df):,} rows.")
+
+
 # ---------------------------------------------------------------------------------------
 # 🔴 ROW 1: Closer Name Bar Chart + Closer Summary Table (Side-by-Side)
 # ---------------------------------------------------------------------------------------
