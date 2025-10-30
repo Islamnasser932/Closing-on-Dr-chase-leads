@@ -533,25 +533,27 @@ else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
 
-# --- Chart 5: Closer -> Specialty vs Disposition (REPLACED 3D TREEMAP) ---
+# --- Chart 5: Dr Specialty vs Disposition (Modified to PIE + Summary) ---
 st.markdown("---")
-st.subheader("🏥 Dr Specialty Performance by Disposition")
+st.subheader("🏥 Dr Specialty Performance Analysis")
 
-# 1. Closer Filter for the chart (New selectbox)
+# 1. Closer Filter for the chart (Selectbox for Single Closer)
 closer_list_all = sorted(filtered_df['Closer Name'].unique())
 
 if not closer_list_all:
     st.info("No data available for this breakdown.")
 else:
-    # 🔴 FIX 1: Add "All Closers" option and change to selectbox
+    # 🔴 Setting up two columns for Pie Chart and Summary
+    col_chart_5, col_summary_5 = st.columns([1, 1])
+
+    # 🔴 Filtering Logic
     closer_options_5 = ["All Closers"] + closer_list_all
-    closer_filter_5 = st.selectbox(
-        "Select Closer to Analyze Specialty Breakdown:", 
+    closer_filter_5 = col_chart_5.selectbox(
+        "Select Closer for Specialty Analysis:", 
         options=closer_options_5, 
         key="specialty_closer_filter"
     )
     
-    # 🔴 FIX 2: Dynamic Filtering Logic
     if closer_filter_5 == "All Closers":
         specialty_filtered_df = filtered_df.copy()
         chart_title_context = "All Selected Closers"
@@ -561,35 +563,64 @@ else:
         ].copy()
         chart_title_context = closer_filter_5
         
-    # 2. Aggregate Data (Specialty Count only)
-    specialty_count = specialty_filtered_df['Dr Specialty'].value_counts().reset_index(name='Count')
-    specialty_count.columns = ['Dr Specialty', 'Count']
+    # 2. Aggregate Data (Specialty Count for Pie Chart)
+    specialty_pie_data = specialty_filtered_df['Dr Specialty'].value_counts().reset_index(name='Count')
+    specialty_pie_data.columns = ['Dr Specialty', 'Count']
+    total_specialty_count = specialty_pie_data['Count'].sum()
     
-    # 3. Aggregate Data (Specialty vs. Disposition)
-    specialty_dispo_count = specialty_filtered_df.groupby(
+    # 3. Aggregate Data (Specialty vs. Disposition) for Summary Table
+    specialty_dispo_summary = specialty_filtered_df.groupby(
         ['Dr Specialty', 'Chasing Disposition']
     ).size().reset_index(name='Count')
     
-    if not specialty_dispo_count.empty:
-        # 4. Create Stacked Bar Chart
-        fig_specialty = px.bar(
-            specialty_dispo_count,
-            x='Dr Specialty',
-            y='Count',
-            color='Chasing Disposition',
-            title=f"Disposition Breakdown by Specialty for {chart_title_context}",
-            template='plotly_white',
-            color_discrete_sequence=px.colors.qualitative.Pastel
-        )
-        fig_specialty.update_layout(
-            xaxis_title="Doctor Specialty",
-            yaxis_title="Count of Records",
-            barmode='stack',
-            font=dict(size=PLOTLY_FONT_SIZE)
-        )
-        st.plotly_chart(fig_specialty, use_container_width=True)
+    if not specialty_pie_data.empty:
+        # 🟢 LEFT COLUMN: Pie Chart (Distribution of Dr Specialty)
+        with col_chart_5:
+            fig_pie = px.pie(
+                specialty_pie_data,
+                names='Dr Specialty',
+                values='Count',
+                title=f"Dr Specialty Distribution for {chart_title_context}",
+                template='plotly_white',
+                color_discrete_sequence=px.colors.qualitative.Set1
+            )
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+            fig_pie.update_layout(
+                font=dict(size=PLOTLY_FONT_SIZE),
+                title_font=dict(size=PLOTLY_FONT_SIZE + 4)
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+        # 🟢 RIGHT COLUMN: Summary Table (Top 5 Dispositions in that context)
+        with col_summary_5:
+            st.markdown("### Disposition Summary by Specialty")
+            
+            dispo_summary_table = specialty_dispo_summary.groupby('Chasing Disposition')['Count'].sum().reset_index(name='Total Count')
+            dispo_summary_table['Percentage'] = (dispo_summary_table['Total Count'] / total_specialty_count * 100).round(1).astype(float)
+            dispo_summary_table['Total Count'] = dispo_summary_table['Total Count'].astype(int)
+
+            # Sort and display top dispositions
+            st.dataframe(
+                dispo_summary_table.sort_values('Total Count', ascending=False).head(10),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Chasing Disposition": "Disposition",
+                    "Total Count": st.column_config.ProgressColumn(
+                        "Count",
+                        format="%d",
+                        min_value=0,
+                        max_value=total_specialty_count,
+                    ),
+                    "Percentage": st.column_config.NumberColumn(
+                        "Overall %",
+                        format="%.1f%%",
+                    )
+                }
+            )
+            st.info(f"Total leads analyzed: {total_specialty_count:,}")
     else:
-        st.info(f"No records found for the selected Closer(s) in this combination.")
+        st.info(f"No specialty data found for the selected Closer(s).")
 
 
 # --- Chart 6: Client Distribution (FULL WIDTH) ---
