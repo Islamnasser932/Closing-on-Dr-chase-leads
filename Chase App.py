@@ -25,11 +25,11 @@ def load_and_enrich_dr_chase_data():
         # Load O_Plan_Leads (for Closer Name enrichment ONLY)
         oplan = pd.read_csv("O_Plan_Leads.csv", encoding='latin-1', low_memory=False)
 
-        # ================== 2️⃣ DATA CLEANING & ENRICHMENT ==================
+        # ================== 2️⃣ DATA CLEANing & ENRICHMENT ==================
         
         # --- Date & Time Conversion (for DR CHASE) ---
         dr['Modified Time'] = pd.to_datetime(dr['Modified Time'], errors='coerce', dayfirst=True)
-        date_cols_dr = ["Completion Date", "Assigned date", "Approval date", "Denial Date", "Upload Date"]
+        date_cols_dr = ["Completion Date", "Assigned date", "Approval date", "Denial Date", "Upload Date", "Date of Sale", "Created Time"]
         for col in date_cols_dr:
             if col in dr.columns:
                 dr[col] = pd.to_datetime(dr[col], errors='coerce', dayfirst=True)
@@ -289,7 +289,9 @@ PLOTLY_FONT_SIZE = 14
 
 st.subheader("Distribution Analysis")
 
-# 🔴 تحديث: تخطيط عمودين للمخطط وملخص النص
+# ---------------------------------------------------------------------------------------
+# 🔴 ROW 1: Closer Name Bar Chart + Closer Summary Table (Side-by-Side)
+# ---------------------------------------------------------------------------------------
 col_closer_chart, col_closer_summary = st.columns([3, 2]) 
 
 # --- Data Prep for Closer Charts/Text ---
@@ -298,11 +300,10 @@ closer_count.columns = ["Closer Name", "Count"]
 total_closer_count = int(closer_count['Count'].sum()) # 🔴 FIX 2: Define total_closer_count here
 closer_count['Percentage'] = (closer_count['Count'] / total_closer_count * 100).round(1)
 
-
-# --- LEFT COLUMN (Chart 1: Total Leads by Closer Name - Simple Bar) ---
+# --- LEFT COLUMN (Chart 1: Total Leads by Closer Name - Bar Chart) ---
 with col_closer_chart:
     if not closer_count.empty:
-        # 🔴 Chart 1: Reverted to simple bar chart
+        # 🟢 Chart 1: Bar Chart (Reverted from Pie Chart)
         fig1 = px.bar(
             closer_count, 
             x="Closer Name", 
@@ -488,7 +489,73 @@ else:
     st.warning("No data available to display Client Distribution based on current filters.")
 
 
-# --- Chart 5: Opener Status Count (REMOVED) ---
+# --- Time Series Analysis Section (Chart 5) ---
+st.markdown("---")
+st.subheader("📈 Key Activity Time Series Analysis")
+
+# 1. Define Available Date Columns
+date_cols_analysis = [
+    "Created Time", "Date of Sale", "Assigned date", "Completion Date", "Approval date", "Denial Date", "Upload Date"
+]
+available_date_cols = [c for c in date_cols_analysis if c in working_df.columns]
+
+if not available_date_cols:
+    st.info("⚠️ No primary date columns found for time series analysis.")
+else:
+    # User Selection of Time Column
+    time_col = st.selectbox("Select time dimension:", available_date_cols, key="ts_time_col")
+
+    # Filter data for records with valid selected date
+    df_ts = filtered_df[filtered_df[time_col].notna()].copy()
+    
+    if df_ts.empty:
+        st.info(f"No records with valid '{time_col}' after applying filters.")
+    else:
+        # Aggregation Frequency Selection
+        freq = st.radio("Time aggregation level:", ["Daily", "Weekly", "Monthly"], horizontal=True, key="ts_freq_radio")
+
+        # Grouping/Breakdown Selection
+        group_by_col = st.selectbox("Breakdown series by:", ["None", "Closer Name", "Chasing Disposition", "Client"], key="ts_group_select")
+        
+        # Calculate period (using pandas offset strings)
+        freq_map = {"Daily": "D", "Weekly": "W", "Monthly": "M"}
+        period_offset = freq_map[freq]
+        
+        # Create the time period column
+        df_ts['Period'] = df_ts[time_col].dt.to_period(period_offset).dt.to_timestamp()
+        
+        if group_by_col == "None":
+            ts_data = df_ts.groupby('Period').size().reset_index(name='Count')
+            color_col = None
+        else:
+            ts_data = df_ts.groupby(['Period', group_by_col]).size().reset_index(name='Count')
+            color_col = group_by_col
+            
+        if not ts_data.empty:
+            # Generate Plotly Line Chart
+            fig_ts = px.line(
+                ts_data,
+                x='Period',
+                y='Count',
+                color=color_col,
+                title=f"Activity Trend: {time_col} ({freq} Count)",
+                template='plotly_white',
+                labels={'Count': 'Number of Records', 'Period': 'Time Period'},
+                color_discrete_sequence=px.colors.qualitative.Bold
+            )
+            
+            # Update layout for better time axis visibility
+            fig_ts.update_layout(
+                xaxis_title=time_col,
+                yaxis_title="Record Count",
+                hovermode="x unified",
+                font=dict(size=PLOTLY_FONT_SIZE)
+            )
+            
+            st.plotly_chart(fig_ts, use_container_width=True)
+        else:
+            st.info("No data available after grouping and time aggregation.")
+
 
 st.markdown("---")
 
