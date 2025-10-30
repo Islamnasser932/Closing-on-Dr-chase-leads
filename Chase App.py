@@ -602,7 +602,7 @@ else:
         st.info(f"No records found for {selected_closer} under current filters.")
 
 # ---------------------------------------------------------------------------------------
-# 🔴 NEW SECTION: Closer Comparison (Denied vs. Pending Shipping)
+# 🔴 NEW SECTION (Chart 5): Closer Comparison (Denied vs. Pending Shipping)
 # ---------------------------------------------------------------------------------------
 st.markdown("---")
 st.subheader("📊 Closer Comparison: Dr Denied vs. Pending Shipping")
@@ -633,7 +633,7 @@ if not comparison_df.empty:
     if 'Pending Shipping' not in comparison_pivot.columns:
         comparison_pivot['Pending Shipping'] = 0
         
-    # 6. Get Total Leads per Closer
+    # 6. Get Total Leads per Closer (from filtered_df)
     closer_total_leads = filtered_df['Closer Name'].value_counts().reset_index()
     closer_total_leads.columns = ['Closer Name', 'Total Leads']
     
@@ -659,31 +659,55 @@ if not comparison_df.empty:
     comparison_pivot['Percentage Denied'] = comparison_pivot['Percentage Denied'].astype(float)
     comparison_pivot['Percentage Pending'] = comparison_pivot['Percentage Pending'].astype(float)
 
-    # 11. Display the table
+    # 11. Define Styling Functions
+    def style_denied(val):
+        # Red if > 30%
+        color = 'red' if val > 30 else 'inherit'
+        return f'color: {color}'
+
+    def style_pending(val):
+        # Red if < 20%, Green if > 30%
+        if val < 20:
+            color = 'red'
+        elif val > 30:
+            color = 'green'
+        else:
+            color = 'inherit'
+        return f'color: {color}'
+
+    # 12. Apply Styling
+    styled_pivot = comparison_pivot.style \
+        .map(style_denied, subset=['Percentage Denied']) \
+        .map(style_pending, subset=['Percentage Pending']) \
+        .format({
+            'Percentage Denied': '{:.1f}%',
+            'Percentage Pending': '{:.1f}%',
+            'Total Leads': '{:,}',
+            'Dr Denied': '{:,}',
+            'Pending Shipping': '{:,}'
+        })
+
+    # 13. Display the styled table (st.dataframe)
     st.dataframe(
-        comparison_pivot[['Closer Name', 'Total Leads', 'Dr Denied', 'Percentage Denied', 'Pending Shipping', 'Percentage Pending']],
+        styled_pivot,
         use_container_width=True,
         hide_index=True,
         column_config={
+            "Closer Name": "Closer",
             "Dr Denied": st.column_config.NumberColumn(
-                "Dr Denied (Count)",
-                format="%d"
+                "Dr Denied (Count)"
             ),
             "Pending Shipping": st.column_config.NumberColumn(
-                "Pending Shipping (Count)",
-                format="%d"
+                "Pending Shipping (Count)"
             ),
             "Total Leads": st.column_config.NumberColumn(
-                "Total Leads (Closer)",
-                format="%d"
+                "Total Leads (Closer)"
             ),
             "Percentage Denied": st.column_config.NumberColumn(
-                "Denied %",
-                format="%.1f%%"
+                "Denied %"
             ),
             "Percentage Pending": st.column_config.NumberColumn(
-                "Pending %",
-                format="%.1f%%"
+                "Pending %"
             )
         }
     )
@@ -691,7 +715,7 @@ else:
     st.info("No records found for 'Dr Denied' or 'Pending Shipping' with the current filters.")
 
 
-# --- Chart 5: Dr Specialty vs Disposition (Modified to Treemap) ---
+# --- Chart 6: Dr Specialty vs Disposition (Modified to Treemap) ---
 st.markdown("---")
 st.subheader("🏥 Dr Specialty Performance Analysis")
 
@@ -749,7 +773,7 @@ else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
 
-# --- Chart 6: Client Distribution (FULL WIDTH) ---
+# --- Chart 7: Client Distribution (FULL WIDTH) ---
 st.markdown("### Client Distribution Analysis")
 client_count = filtered_df['Client'].value_counts().reset_index()
 client_count.columns = ["Client", "Count"]
@@ -776,7 +800,7 @@ else:
     st.warning("No data available to display Client Distribution based on current filters.")
 
 
-# --- Time Series Analysis Section (Chart 7) ---
+# --- Time Series Analysis Section (Chart 8) ---
 st.markdown("---")
 st.subheader("📈 Key Activity Time Series Analysis")
 
