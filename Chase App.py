@@ -585,6 +585,9 @@ else:
         )
         
         st.plotly_chart(fig_treemap_specialty, use_container_width=True)
+
+        # 🔴 4. (تم حذف جدول الملخص بناءً على طلبك)
+        
     else:
         st.info(f"No specialty data found for the selected Closer(s).")
 
