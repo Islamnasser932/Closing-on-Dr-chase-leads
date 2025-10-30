@@ -661,18 +661,27 @@ if not comparison_df.empty:
 
     # 11. Define Styling Functions
     def style_denied(val):
-        # Red if > 30%
-        color = 'red' if val > 30 else 'inherit'
+        # Denied: 0-20% (Yellow), 20-30% (Orange), > 30% (Red)
+        if val > 30:
+            color = 'red'
+        elif val > 20: # 20-30
+            color = 'orange'
+        elif val >= 0: # 0-20
+            color = 'goldenrod' # Using goldenrod as 'yellow' is too light
+        else:
+            color = 'inherit'
         return f'color: {color}'
 
     def style_pending(val):
-        # Red if < 20%, Green if > 30%
-        if val < 20:
-            color = 'red'
-        elif val > 30:
+        # Pending: 0-10% (Red), 10-30% (Orange), 30-50% (Green)
+        if val > 30 and val <= 50:
             color = 'green'
+        elif val > 10 and val <= 30:
+            color = 'orange'
+        elif val >= 0 and val <= 10:
+            color = 'red'
         else:
-            color = 'inherit'
+            color = 'inherit' # This will catch > 50%
         return f'color: {color}'
 
     # 12. Apply Styling
