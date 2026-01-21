@@ -7,7 +7,7 @@ from streamlit_extras.metric_cards import style_metric_cards
 import numpy as np 
 import math 
 import re # 🔴 Import re for helper functions
-s
+
 # ================== 0️⃣ CONFIGURATION ==================
 st.set_page_config(
     # 🔴 تحديث: تغيير page_title
@@ -897,4 +897,5 @@ else:
     st.info("The filtered data table is empty.")
 
 # ================== 🔟 MISSING DATA WARNING (REMOVED) ==================
+
 
